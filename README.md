@@ -84,6 +84,20 @@ npm run build
 npm run preview
 ```
 
+## 在线部署
+
+仓库已补充 GitHub Pages 自动部署工作流：
+
+- 工作流文件：`.github/workflows/deploy-pages.yml`
+- 推送分支：`main`
+- 部署方式：每次推送到 `main` 后自动构建并发布
+
+默认线上地址会是：
+
+`https://ruanzifeng518-art.github.io/my-dating-app/`
+
+如果你刚刚第一次推送部署配置，通常需要等 GitHub Actions 跑完后，再过 1 到 3 分钟页面才会稳定可访问。
+
 ## 演示说明
 
 如果你要拿这个项目做现场演示，建议提前准备两类内容：
