@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Heart, LoaderCircle, LogOut, Sparkles } from 'lucide-react'
+import { Heart, LoaderCircle, LogOut, MessageCircle, Sparkles } from 'lucide-react'
 import ChatRoom from './components/ChatRoom'
 import Login from './components/Login'
 import MatchCardPage from './components/MatchCardPage'
+import MatchesDrawer from './components/MatchesDrawer'
 import OnboardingFlow from './components/OnboardingFlow'
 import { isSupabaseConfigured, supabase } from './supabaseClient'
 
@@ -44,6 +45,7 @@ function App() {
   const [isLoadingProfile, setIsLoadingProfile] = useState(false)
   const [profileLoadError, setProfileLoadError] = useState('')
   const [activeChat, setActiveChat] = useState(null)
+  const [isMatchesOpen, setIsMatchesOpen] = useState(false)
 
   const persistCurrentUserId = useCallback((userId) => {
     if (userId) {
@@ -139,6 +141,7 @@ function App() {
   }
 
   const handleOpenChat = ({ profile, match }) => {
+    setIsMatchesOpen(false)
     setActiveChat({
       profile,
       match,
@@ -154,6 +157,8 @@ function App() {
     setSession(null)
     setAuthUser(null)
     setCurrentUserProfile(null)
+    setIsMatchesOpen(false)
+    setActiveChat(null)
     persistCurrentUserId(null)
   }
 
@@ -209,14 +214,25 @@ function App() {
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={handleSignOut}
-              className="inline-flex items-center gap-2 rounded-full border border-pink-200 bg-pink-50 px-4 py-2 text-sm font-medium text-pink-500 transition hover:bg-pink-100"
-            >
-              <LogOut className="h-4 w-4" />
-              退出登录
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setIsMatchesOpen(true)}
+                className="inline-flex items-center gap-2 rounded-full border border-pink-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 transition hover:border-pink-200 hover:bg-pink-50 hover:text-pink-500"
+              >
+                <MessageCircle className="h-4 w-4" />
+                会话列表
+              </button>
+
+              <button
+                type="button"
+                onClick={handleSignOut}
+                className="inline-flex items-center gap-2 rounded-full border border-pink-200 bg-pink-50 px-4 py-2 text-sm font-medium text-pink-500 transition hover:bg-pink-100"
+              >
+                <LogOut className="h-4 w-4" />
+                退出登录
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -244,6 +260,13 @@ function App() {
           onOpenChat={handleOpenChat}
         />
       )}
+
+      <MatchesDrawer
+        open={!activeChat && isMatchesOpen}
+        currentUserId={authUser.id}
+        onClose={() => setIsMatchesOpen(false)}
+        onOpenChat={handleOpenChat}
+      />
     </>
   )
 }
