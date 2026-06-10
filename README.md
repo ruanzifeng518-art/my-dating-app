@@ -1,6 +1,15 @@
 # 心动配对前端原型
 
-这是一个基于 `Vite + React + Supabase` 的恋爱配对产品原型，已经打通了登录注册、资料完善、推荐卡片、双向匹配和即时聊天的完整主链路。
+这是一个基于 `Vite + React + Supabase` 的恋爱配对产品原型，已经打通了注册登录、资料完善、推荐卡片、双向匹配、会话列表、资料编辑和即时聊天的完整主链路。
+
+## 项目亮点
+
+- 完整恋爱产品主链路：登录、建档、推荐、匹配、聊天一条线打通
+- 使用 `Supabase Auth + Database + Realtime`，不依赖自建后端即可演示
+- 会话列表支持最新消息排序、未读数和已读状态
+- 聊天支持 `Enter` 发送、`Shift + Enter` 换行、发送中临时气泡
+- 登录后可随时编辑个人资料，变更会即时同步到当前界面
+- 推荐卡片已做产品化打磨，适合项目展示、作业答辩或 Demo 演示
 
 ## 当前功能
 
@@ -10,6 +19,8 @@
 - 推荐异性卡片并支持喜欢 / 无感
 - 双向喜欢后自动创建 `matches`
 - 匹配成功弹窗与聊天入口
+- 会话列表与未读状态
+- 登录后资料编辑
 - 基于 Supabase Realtime 的即时聊天
 
 ## 技术栈
@@ -19,6 +30,24 @@
 - `Supabase Auth / Database / Realtime`
 - `lucide-react`
 - `canvas-confetti`
+
+## 页面流程
+
+```text
+登录 / 注册
+   ↓
+首次资料完善
+   ↓
+推荐卡片页
+   ↓
+左右滑动 / 喜欢无感
+   ↓
+双向喜欢后自动匹配
+   ↓
+会话列表 / 聊天室
+   ↓
+资料编辑与持续互动
+```
 
 ## 本地启动
 
@@ -55,6 +84,17 @@ npm run build
 npm run preview
 ```
 
+## 演示说明
+
+如果你要拿这个项目做现场演示，建议提前准备两类内容：
+
+1. 一套已经配置好的 Supabase 项目与测试数据  
+2. 两个测试账号，用来演示匹配与实时聊天
+
+仓库里已经附带一份更详细的演示说明：
+
+- `DEMO_GUIDE.md`：演示顺序、演示账号准备建议、推荐演示话术
+
 ## 数据库脚本
 
 仓库内已经提供了初始化和功能补充所需的 SQL：
@@ -65,6 +105,13 @@ npm run preview
 - `supabase_auth_policies.sql`：`profiles` 的自写入权限策略
 - `supabase_likes_matches_flow.sql`：`likes / matches` 所需字段与策略
 - `supabase_messages_realtime.sql`：`messages` 表与 Realtime 相关配置
+
+推荐执行顺序：
+
+1. `supabase_schema_run.sql` 或 `supabase_schema_fixed.sql`
+2. `supabase_auth_policies.sql`
+3. `supabase_likes_matches_flow.sql`
+4. `supabase_messages_realtime.sql`
 
 ## 目录结构
 
@@ -77,6 +124,7 @@ src/
   assets/           静态资源
   components/       页面与业务组件
   data/             示例数据
+  utils/            前端状态工具
   App.jsx           应用主入口
   main.jsx          React 挂载入口
   index.css         全局样式
@@ -89,7 +137,10 @@ src/
 - `src/components/OnboardingFlow.jsx`：首次资料完善
 - `src/components/MatchCardPage.jsx`：配对卡片页
 - `src/components/MatchSuccessModal.jsx`：匹配成功弹窗
+- `src/components/MatchesDrawer.jsx`：会话列表抽屉
 - `src/components/ChatRoom.jsx`：即时聊天室
+- `src/components/ProfileEditorModal.jsx`：资料编辑弹层
+- `src/utils/chatReadState.js`：会话已读状态记录
 
 ## 当前状态
 
@@ -100,14 +151,26 @@ src/
 - 浏览推荐卡片
 - 点赞 / 无感写库
 - 双向喜欢触发匹配
+- 会话列表查看最近互动
 - 进入聊天室
 - 消息实时同步
+- 资料编辑并即时刷新显示
+
+## 适合展示的能力
+
+- 前端产品原型能力
+- Supabase 集成能力
+- 用户状态管理与页面切换能力
+- 实时消息体验设计
+- 从原型到可演示版本的产品打磨能力
 
 ## 后续可继续扩展
 
-- 会话列表页
-- 未读消息状态
 - 头像上传
-- 用户资料编辑
+- 图片消息 / 表情
 - 举报 / 拉黑
 - 推荐算法优化
+- 更完整的用户搜索与筛选
+- 更细的在线状态 / 已读回执
+- 用户资料编辑
+- 部署到 Vercel 或 Netlify
