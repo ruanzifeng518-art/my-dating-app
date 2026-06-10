@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AlertCircle, Heart, MapPin, RefreshCcw, Sparkles, X } from 'lucide-react'
+import { AlertCircle, Heart, MapPin, RefreshCcw, Sparkles, Star, TrendingUp, UserRoundCheck, WandSparkles, X } from 'lucide-react'
 import MatchSuccessModal from './MatchSuccessModal'
 import { isSupabaseConfigured, supabase } from '../supabaseClient'
 
@@ -7,7 +7,7 @@ const ANIMATION_DURATION = 320
 const SWIPE_THRESHOLD = 110
 const DISTANCE_PRESETS = ['1.8km', '3.2km', '5.6km', '2.4km', '4.1km', '6.3km', '2.9km']
 
-function StateCard({ title, description, actionLabel, onAction }) {
+function StateCard({ title, description, actionLabel, onAction, helperText }) {
   return (
     <div className="w-full rounded-[36px] border border-pink-100 bg-white/90 p-10 text-center shadow-[0_24px_80px_rgba(244,114,182,0.16)] backdrop-blur">
       <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-pink-50 text-pink-500">
@@ -15,6 +15,7 @@ function StateCard({ title, description, actionLabel, onAction }) {
       </div>
       <h2 className="mt-6 text-3xl font-semibold text-slate-900">{title}</h2>
       <p className="mt-3 text-base leading-8 text-slate-500">{description}</p>
+      {helperText && <p className="mt-3 text-sm leading-7 text-slate-400">{helperText}</p>}
       <button
         type="button"
         onClick={onAction}
@@ -42,6 +43,7 @@ function mapProfileRows(rows) {
       distance: DISTANCE_PRESETS[index % DISTANCE_PRESETS.length],
       sign: row.bio?.trim() || fallbackBio,
       tags,
+      energyLabel: ['慢热认真型', '有趣会聊天', '适合深聊', '轻松好相处'][index % 4],
       image:
         row.avatar_url?.trim() ||
         `https://api.dicebear.com/9.x/notionists/svg?seed=${encodeURIComponent(row.nickname)}`,
@@ -73,6 +75,13 @@ export default function MatchCardPage({ currentUserId, currentUserProfile, onOpe
     }
 
     return `${Math.min(currentIndex + 1, profiles.length)} / ${profiles.length}`
+  }, [currentIndex, profiles.length])
+  const progressPercent = useMemo(() => {
+    if (!profiles.length) {
+      return 0
+    }
+
+    return ((Math.min(currentIndex + 1, profiles.length) / profiles.length) * 100).toFixed(0)
   }, [currentIndex, profiles.length])
 
   const loadProfiles = useCallback(async () => {
@@ -399,6 +408,25 @@ export default function MatchCardPage({ currentUserId, currentUserProfile, onOpe
     : {
         transform: `translateX(${dragOffset}px) rotate(${dragRotation}deg)`,
       }
+  const sharedTags = useMemo(() => {
+    if (!currentProfile) {
+      return []
+    }
+
+    const myTags = new Set(currentUserProfile?.interests ?? [])
+    return currentProfile.tags.filter((tag) => myTags.has(tag)).slice(0, 3)
+  }, [currentProfile, currentUserProfile?.interests])
+
+  const compatibilityScore = useMemo(() => {
+    if (!currentProfile) {
+      return 0
+    }
+
+    const sharedScore = sharedTags.length * 16
+    const tagScore = Math.min(currentProfile.tags.length * 8, 24)
+    const bioScore = currentProfile.sign.length > 14 ? 18 : 10
+    return Math.min(98, 44 + sharedScore + tagScore + bioScore)
+  }, [currentProfile, sharedTags.length])
 
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(251,113,133,0.26),_transparent_24%),radial-gradient(circle_at_bottom,_rgba(244,114,182,0.22),_transparent_28%),linear-gradient(180deg,_#fff8fb_0%,_#fff_50%,_#fff5f7_100%)] px-4 py-10">
@@ -416,15 +444,33 @@ export default function MatchCardPage({ currentUserId, currentUserProfile, onOpe
               左滑无感，右滑心动
             </h1>
             <p className="max-w-2xl text-base leading-8 text-slate-500 md:text-lg">
-              先用 5 位假用户数据演示匹配流程。点击下方按钮后，卡片会淡出并自动切换到下一位。
+              资料越完整，卡片越像一次真实相遇。右滑表示心动，左滑表示暂时无感，双向喜欢后会立刻进入会话。
             </p>
+          </div>
+          <div className="flex flex-wrap items-center justify-center gap-3 text-sm text-slate-500">
+            <div className="inline-flex items-center gap-2 rounded-full border border-pink-100 bg-white/80 px-4 py-2 shadow-sm">
+              <UserRoundCheck className="h-4 w-4 text-pink-400" />
+              真实资料驱动推荐
+            </div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-pink-100 bg-white/80 px-4 py-2 shadow-sm">
+              <WandSparkles className="h-4 w-4 text-pink-400" />
+              双向心动自动建联
+            </div>
           </div>
         </div>
 
         <div className="mx-auto flex max-w-md flex-col items-center">
-          <div className="mb-5 flex w-full items-center justify-between rounded-full border border-pink-100 bg-white/80 px-5 py-3 text-sm text-slate-500 shadow-sm backdrop-blur">
-            <span>今日推荐</span>
-            <span className="font-medium text-slate-800">{progressText}</span>
+          <div className="mb-5 w-full rounded-[28px] border border-pink-100 bg-white/82 px-5 py-4 shadow-sm backdrop-blur">
+            <div className="flex items-center justify-between text-sm text-slate-500">
+              <span>今日推荐</span>
+              <span className="font-medium text-slate-800">{progressText}</span>
+            </div>
+            <div className="mt-3 h-2 overflow-hidden rounded-full bg-pink-50">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-pink-500 to-rose-400 transition-all duration-300"
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
           </div>
 
           {isLoadingProfiles ? (
@@ -433,6 +479,7 @@ export default function MatchCardPage({ currentUserId, currentUserProfile, onOpe
               description="正在从 Supabase 拉取 profiles 表中的异性用户数据，请稍等片刻。"
               actionLabel="重新加载"
               onAction={loadProfiles}
+              helperText="推荐卡片会自动过滤你已经操作过的对象。"
             />
           ) : loadError ? (
             <StateCard
@@ -440,6 +487,7 @@ export default function MatchCardPage({ currentUserId, currentUserProfile, onOpe
               description={loadError}
               actionLabel="重试连接"
               onAction={loadProfiles}
+              helperText="确认 `.env` 和 Supabase 策略执行完成后，再试一次。"
             />
           ) : hasMoreProfiles ? (
             <>
@@ -459,23 +507,36 @@ export default function MatchCardPage({ currentUserId, currentUserProfile, onOpe
                     className="h-full w-full object-cover"
                   />
 
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/15 to-transparent" />
+                  <div className="absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-black/25 to-transparent" />
 
                   <div className="absolute left-5 right-5 top-5 flex items-center justify-between">
-                    <div className="rounded-full bg-white/85 px-3 py-1 text-xs font-semibold tracking-[0.18em] text-pink-500 backdrop-blur">
-                      MATCH
-                    </div>
-                    {(actionType || Math.abs(dragOffset) > 24) && (
-                      <div
-                        className={`rounded-full px-4 py-2 text-sm font-semibold shadow-lg backdrop-blur ${
-                          actionType === 'like' || dragOffset > 24
-                            ? 'bg-pink-500/90 text-white'
-                            : 'bg-slate-800/85 text-white'
-                        }`}
-                      >
-                        {actionType === 'like' || dragOffset > 24 ? '喜欢' : '无感'}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="rounded-full bg-white/85 px-3 py-1 text-xs font-semibold tracking-[0.18em] text-pink-500 backdrop-blur">
+                        MATCH
                       </div>
-                    )}
+                      {currentProfile.likedYou && (
+                        <div className="rounded-full bg-pink-500/90 px-3 py-1 text-xs font-semibold text-white shadow-lg shadow-pink-300/40">
+                          可能对你有好感
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="rounded-full bg-black/35 px-3 py-1.5 text-xs font-medium text-white backdrop-blur">
+                        契合度 {compatibilityScore}%
+                      </div>
+                      {(actionType || Math.abs(dragOffset) > 24) && (
+                        <div
+                          className={`rounded-full px-4 py-2 text-sm font-semibold shadow-lg backdrop-blur ${
+                            actionType === 'like' || dragOffset > 24
+                              ? 'bg-pink-500/90 text-white'
+                              : 'bg-slate-800/85 text-white'
+                          }`}
+                        >
+                          {actionType === 'like' || dragOffset > 24 ? '喜欢' : '无感'}
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   <div className="absolute inset-x-0 bottom-0 p-6 text-white">
@@ -492,7 +553,28 @@ export default function MatchCardPage({ currentUserId, currentUserProfile, onOpe
                           距离你 {currentProfile.distance}
                         </div>
                       </div>
+                      <div className="rounded-[24px] border border-white/15 bg-white/10 px-4 py-3 backdrop-blur">
+                        <div className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-white/70">
+                          <TrendingUp className="h-3.5 w-3.5" />
+                          推荐亮点
+                        </div>
+                        <p className="mt-2 text-sm font-medium text-white">{currentProfile.energyLabel}</p>
+                      </div>
                     </div>
+
+                    {sharedTags.length > 0 && (
+                      <div className="mb-4 flex flex-wrap gap-2">
+                        {sharedTags.map((tag) => (
+                          <span
+                            key={tag}
+                            className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-pink-500/25 px-3 py-1.5 text-xs font-medium text-white backdrop-blur"
+                          >
+                            <Star className="h-3 w-3 fill-current" />
+                            共同兴趣 · {tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
 
                     <p className="text-sm leading-7 text-white/90">{currentProfile.sign}</p>
 
@@ -544,6 +626,10 @@ export default function MatchCardPage({ currentUserId, currentUserProfile, onOpe
                 </div>
               </div>
 
+              <p className="mt-4 text-center text-xs leading-6 text-slate-400">
+                支持左右拖动卡片操作。右滑表示愿意继续了解，左滑表示先跳过。
+              </p>
+
               {actionError && (
                 <div className="mt-5 w-full rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-center text-sm text-rose-500">
                   {actionError}
@@ -555,11 +641,12 @@ export default function MatchCardPage({ currentUserId, currentUserProfile, onOpe
               title={profiles.length ? '今天的缘分卡看完了' : '数据库里还没有可展示的资料'}
               description={
                 profiles.length
-                  ? '你已经浏览完当前查询到的所有异性资料。点击下方按钮，可以重新从第一张卡片开始预览。'
+                  ? '你已经浏览完当前查询到的所有异性资料。可以重新开始，或者去会话列表回看已有匹配。'
                   : '请先去 Supabase 运行 `supabase_schema.sql`，或往 `profiles` 表里插入至少几条异性用户资料。'
               }
               actionLabel={profiles.length ? '重新开始' : '重新读取'}
               onAction={profiles.length ? handleRestart : loadProfiles}
+              helperText={profiles.length ? '刷新后会重新从第一张卡片开始浏览。' : '至少有一条异性 profiles 数据时，卡片页才会出现推荐内容。'}
             />
           )}
         </div>
