@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowLeft, LoaderCircle, SendHorizonal, Sparkles } from 'lucide-react'
 import { supabase } from '../supabaseClient'
+import { setLastReadAt } from '../utils/chatReadState'
 
 function formatMessageTime(value) {
   return new Date(value).toLocaleTimeString('zh-CN', {
@@ -103,6 +104,15 @@ export default function ChatRoom({
 
     viewportRef.current.scrollTop = viewportRef.current.scrollHeight
   }, [messages])
+
+  useEffect(() => {
+    if (!matchId || !currentUserId) {
+      return
+    }
+
+    const latestVisibleTimestamp = messages[messages.length - 1]?.created_at || new Date().toISOString()
+    setLastReadAt(currentUserId, matchId, latestVisibleTimestamp)
+  }, [currentUserId, matchId, messages])
 
   const handleSend = async (event) => {
     event.preventDefault()

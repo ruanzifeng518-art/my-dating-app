@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { LoaderCircle, MessageCircle, Sparkles, X } from 'lucide-react'
 import { supabase } from '../supabaseClient'
+import { getLastReadAt } from '../utils/chatReadState'
 
 function formatTimeLabel(value) {
   if (!value) {
@@ -22,6 +23,27 @@ function formatTimeLabel(value) {
     month: '2-digit',
     day: '2-digit',
   })
+}
+
+function formatSecondaryTimeLabel(value) {
+  if (!value) {
+    return ''
+  }
+
+  const date = new Date(value)
+  const now = new Date()
+  const diff = now.setHours(0, 0, 0, 0) - new Date(date).setHours(0, 0, 0, 0)
+  const oneDay = 24 * 60 * 60 * 1000
+
+  if (diff === 0) {
+    return '今天活跃'
+  }
+
+  if (diff === oneDay) {
+    return '昨天活跃'
+  }
+
+  return `${formatTimeLabel(value)} 活跃`
 }
 
 function mapPeerProfile(profile) {
@@ -111,12 +133,12 @@ export default function MatchesDrawer({ currentUserId, open, onClose, onOpenChat
       }
 
       const profileMap = new Map((profiles ?? []).map((profile) => [profile.id, mapPeerProfile(profile)]))
-      const latestMessageMap = new Map()
+      const messagesByMatchId = new Map()
 
       for (const message of messages ?? []) {
-        if (!latestMessageMap.has(message.match_id)) {
-          latestMessageMap.set(message.match_id, message)
-        }
+        const group = messagesByMatchId.get(message.match_id) ?? []
+        group.push(message)
+        messagesByMatchId.set(message.match_id, group)
       }
 
       const nextItems = matches
@@ -128,13 +150,23 @@ export default function MatchesDrawer({ currentUserId, open, onClose, onOpenChat
             return null
           }
 
+          const matchMessages = messagesByMatchId.get(match.id) ?? []
+          const latestMessage = matchMessages[0] ?? null
+          const lastReadAt = getLastReadAt(currentUserId, match.id)
+          const unreadCount = matchMessages.filter(
+            (message) => message.sender_id !== currentUserId && (!lastReadAt || message.created_at > lastReadAt),
+          ).length
+
           return {
             match,
             peerProfile,
-            latestMessage: latestMessageMap.get(match.id) ?? null,
+            latestMessage,
+            unreadCount,
+            lastActiveAt: latestMessage?.created_at || match.created_at,
           }
         })
         .filter(Boolean)
+        .sort((a, b) => new Date(b.lastActiveAt).getTime() - new Date(a.lastActiveAt).getTime())
 
       setItems(nextItems)
       setIsLoading(false)
@@ -196,12 +228,10 @@ export default function MatchesDrawer({ currentUserId, open, onClose, onOpenChat
             </div>
           ) : (
             <div className="space-y-3">
-              {items.map(({ match, peerProfile, latestMessage }) => {
+              {items.map(({ match, peerProfile, latestMessage, unreadCount, lastActiveAt }) => {
                 const previewText = latestMessage
                   ? `${latestMessage.sender_id === currentUserId ? '你：' : ''}${latestMessage.text}`
                   : '刚刚匹配成功，快去打个招呼吧。'
-
-                const timeText = latestMessage?.created_at || match.created_at
 
                 return (
                   <button
@@ -222,15 +252,29 @@ export default function MatchesDrawer({ currentUserId, open, onClose, onOpenChat
 
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-3">
-                        <p className="truncate text-sm font-semibold text-slate-900">{peerProfile.nickname}</p>
-                        <span className="shrink-0 text-xs text-slate-400">{formatTimeLabel(timeText)}</span>
+                        <div className="flex min-w-0 items-center gap-2">
+                          <p className="truncate text-sm font-semibold text-slate-900">{peerProfile.nickname}</p>
+                          {unreadCount > 0 && (
+                            <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-gradient-to-r from-pink-500 to-rose-400 px-1.5 py-0.5 text-[10px] font-semibold text-white shadow-sm">
+                              {unreadCount > 99 ? '99+' : unreadCount}
+                            </span>
+                          )}
+                        </div>
+                        <span className={`shrink-0 text-xs ${unreadCount > 0 ? 'font-medium text-pink-500' : 'text-slate-400'}`}>
+                          {formatTimeLabel(lastActiveAt)}
+                        </span>
                       </div>
 
-                      <p className="mt-1 line-clamp-2 text-sm leading-6 text-slate-500">{previewText}</p>
+                      <p className={`mt-1 line-clamp-2 text-sm leading-6 ${unreadCount > 0 ? 'font-medium text-slate-700' : 'text-slate-500'}`}>
+                        {previewText}
+                      </p>
 
-                      <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-pink-100 bg-pink-50 px-3 py-1 text-xs font-medium text-pink-500">
-                        <MessageCircle className="h-3.5 w-3.5" />
-                        Match #{match.id}
+                      <div className="mt-3 flex items-center justify-between gap-3">
+                        <div className="inline-flex items-center gap-2 rounded-full border border-pink-100 bg-pink-50 px-3 py-1 text-xs font-medium text-pink-500">
+                          <MessageCircle className="h-3.5 w-3.5" />
+                          Match #{match.id}
+                        </div>
+                        <span className="text-xs text-slate-400">{formatSecondaryTimeLabel(lastActiveAt)}</span>
                       </div>
                     </div>
                   </button>
