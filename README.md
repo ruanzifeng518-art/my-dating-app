@@ -11,6 +11,20 @@
 - 登录后可随时编辑个人资料，变更会即时同步到当前界面
 - 推荐卡片已做产品化打磨，适合项目展示、作业答辩或 Demo 演示
 
+## 页面展示
+
+### 登录页
+
+![登录页展示](public/showcase/login-showcase.svg)
+
+### 推荐卡片页
+
+![推荐卡片展示](public/showcase/match-showcase.svg)
+
+### 会话与聊天页
+
+![会话与聊天展示](public/showcase/chat-showcase.svg)
+
 ## 当前功能
 
 - 邮箱注册与登录
@@ -116,6 +130,7 @@ npm run preview
 
 - `DEMO_GUIDE.md`：演示顺序、已验证测试账号、推荐演示话术与排查方式
 - `PITCH_2MIN.md`：可直接用于答辩、面试或路演开场的 2 分钟讲稿
+- `PITCH_5MIN.md`：可直接用于答辩、课程展示或项目汇报的 5 分钟完整版讲稿
 
 ## 数据库脚本
 
