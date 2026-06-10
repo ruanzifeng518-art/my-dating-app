@@ -18,11 +18,13 @@ export default function ChatRoom({
   onBack,
 }) {
   const [messages, setMessages] = useState([])
+  const [pendingMessages, setPendingMessages] = useState([])
   const [draft, setDraft] = useState('')
   const [isLoading, setIsLoading] = useState(true)
   const [isSending, setIsSending] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const viewportRef = useRef(null)
+  const textareaRef = useRef(null)
 
   const matchId = match?.id
   const title = useMemo(() => peerProfile?.name || peerProfile?.nickname || '聊天室', [peerProfile])
@@ -33,6 +35,22 @@ export default function ChatRoom({
       `https://api.dicebear.com/9.x/notionists/svg?seed=${encodeURIComponent(title || 'peer')}`,
     [peerProfile?.avatar_url, peerProfile?.image, title],
   )
+  const renderedMessages = useMemo(
+    () =>
+      [...messages, ...pendingMessages].sort(
+        (a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime(),
+      ),
+    [messages, pendingMessages],
+  )
+
+  useEffect(() => {
+    if (!textareaRef.current) {
+      return
+    }
+
+    textareaRef.current.style.height = '0px'
+    textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 160)}px`
+  }, [draft])
 
   useEffect(() => {
     if (!matchId) {
@@ -103,7 +121,7 @@ export default function ChatRoom({
     }
 
     viewportRef.current.scrollTop = viewportRef.current.scrollHeight
-  }, [messages])
+  }, [renderedMessages])
 
   useEffect(() => {
     if (!matchId || !currentUserId) {
@@ -122,6 +140,18 @@ export default function ChatRoom({
       return
     }
 
+    const pendingId = `pending-${Date.now()}`
+    const pendingMessage = {
+      id: pendingId,
+      match_id: matchId,
+      sender_id: currentUserId,
+      text,
+      created_at: new Date().toISOString(),
+      pending: true,
+    }
+
+    setPendingMessages((prev) => [...prev, pendingMessage])
+    setDraft('')
     setIsSending(true)
     setErrorMessage('')
 
@@ -136,10 +166,13 @@ export default function ChatRoom({
       .single()
 
     if (error) {
+      setPendingMessages((prev) => prev.filter((item) => item.id !== pendingId))
       setErrorMessage(error.message)
       setIsSending(false)
       return
     }
+
+    setPendingMessages((prev) => prev.filter((item) => item.id !== pendingId))
 
     if (data) {
       setMessages((prev) => {
@@ -151,8 +184,21 @@ export default function ChatRoom({
       })
     }
 
-    setDraft('')
     setIsSending(false)
+  }
+
+  const handleComposerKeyDown = (event) => {
+    if (event.key !== 'Enter' || event.shiftKey) {
+      return
+    }
+
+    event.preventDefault()
+
+    if (!draft.trim() || isSending) {
+      return
+    }
+
+    event.currentTarget.form?.requestSubmit()
   }
 
   return (
@@ -196,14 +242,14 @@ export default function ChatRoom({
                 正在读取聊天记录...
               </div>
             </div>
-          ) : messages.length === 0 ? (
+          ) : renderedMessages.length === 0 ? (
             <div className="flex h-full items-center justify-center">
               <div className="max-w-md rounded-[28px] border border-pink-100 bg-pink-50/70 px-6 py-5 text-center text-sm leading-7 text-slate-500">
                 这是你们的第一段对话。可以先发一句轻松的开场白，比如“你好呀，很高兴在这里遇见你。”
               </div>
             </div>
           ) : (
-            messages.map((message) => {
+            renderedMessages.map((message) => {
               const isMine = message.sender_id === currentUserId
               return (
                 <div key={message.id} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
@@ -217,7 +263,9 @@ export default function ChatRoom({
                     >
                       {message.text}
                     </div>
-                    <span className="px-2 text-xs text-slate-400">{formatMessageTime(message.created_at)}</span>
+                    <span className="px-2 text-xs text-slate-400">
+                      {message.pending ? '发送中...' : formatMessageTime(message.created_at)}
+                    </span>
                   </div>
                 </div>
               )
@@ -234,11 +282,13 @@ export default function ChatRoom({
 
           <form onSubmit={handleSend} className="flex items-end gap-3">
             <textarea
+              ref={textareaRef}
               rows="2"
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
+              onKeyDown={handleComposerKeyDown}
               placeholder={`对 ${title} 说点什么...`}
-              className="min-h-[56px] flex-1 resize-none rounded-[24px] border border-slate-200 bg-white px-4 py-3 text-sm leading-7 text-slate-700 shadow-sm outline-none placeholder:text-slate-400"
+              className="min-h-[56px] max-h-40 flex-1 resize-none overflow-y-auto rounded-[24px] border border-slate-200 bg-white px-4 py-3 text-sm leading-7 text-slate-700 shadow-sm outline-none placeholder:text-slate-400"
             />
 
             <button
@@ -253,7 +303,7 @@ export default function ChatRoom({
 
           <div className="mt-3 flex items-center justify-between text-xs text-slate-400">
             <span>{currentUserProfile?.nickname || '当前用户'} 正在聊天中</span>
-            <span>基于 Supabase Realtime 实时同步</span>
+            <span>{isSending ? '消息发送中...' : 'Enter 发送，Shift+Enter 换行'}</span>
           </div>
         </footer>
       </section>
