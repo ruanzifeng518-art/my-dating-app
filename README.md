@@ -131,6 +131,7 @@ npm run preview
 - `DEMO_GUIDE.md`：演示顺序、已验证测试账号、推荐演示话术与排查方式
 - `PITCH_2MIN.md`：可直接用于答辩、面试或路演开场的 2 分钟讲稿
 - `PITCH_5MIN.md`：可直接用于答辩、课程展示或项目汇报的 5 分钟完整版讲稿
+- `PROJECT_CHEATSHEET.md`：答辩前 30 秒快速扫一眼的项目卖点速记卡
 
 ## 数据库脚本
 
