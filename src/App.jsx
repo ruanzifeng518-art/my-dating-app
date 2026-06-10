@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Heart, LoaderCircle, LogOut, MessageCircle, Sparkles } from 'lucide-react'
+import { Heart, LoaderCircle, LogOut, MessageCircle, PencilLine, Sparkles } from 'lucide-react'
 import ChatRoom from './components/ChatRoom'
 import Login from './components/Login'
 import MatchCardPage from './components/MatchCardPage'
 import MatchesDrawer from './components/MatchesDrawer'
 import OnboardingFlow from './components/OnboardingFlow'
+import ProfileEditorModal from './components/ProfileEditorModal'
 import { isSupabaseConfigured, supabase } from './supabaseClient'
 
 function ConfigState() {
@@ -46,6 +47,7 @@ function App() {
   const [profileLoadError, setProfileLoadError] = useState('')
   const [activeChat, setActiveChat] = useState(null)
   const [isMatchesOpen, setIsMatchesOpen] = useState(false)
+  const [isProfileEditorOpen, setIsProfileEditorOpen] = useState(false)
 
   const persistCurrentUserId = useCallback((userId) => {
     if (userId) {
@@ -140,6 +142,11 @@ function App() {
     setProfileLoadError('')
   }
 
+  const handleProfileSaved = (profile) => {
+    setCurrentUserProfile(profile)
+    setProfileLoadError('')
+  }
+
   const handleOpenChat = ({ profile, match }) => {
     setIsMatchesOpen(false)
     setActiveChat({
@@ -158,6 +165,7 @@ function App() {
     setAuthUser(null)
     setCurrentUserProfile(null)
     setIsMatchesOpen(false)
+    setIsProfileEditorOpen(false)
     setActiveChat(null)
     persistCurrentUserId(null)
   }
@@ -217,6 +225,15 @@ function App() {
             <div className="flex items-center gap-2">
               <button
                 type="button"
+                onClick={() => setIsProfileEditorOpen(true)}
+                className="inline-flex items-center gap-2 rounded-full border border-pink-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 transition hover:border-pink-200 hover:bg-pink-50 hover:text-pink-500"
+              >
+                <PencilLine className="h-4 w-4" />
+                编辑资料
+              </button>
+
+              <button
+                type="button"
                 onClick={() => setIsMatchesOpen(true)}
                 className="inline-flex items-center gap-2 rounded-full border border-pink-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 transition hover:border-pink-200 hover:bg-pink-50 hover:text-pink-500"
               >
@@ -267,6 +284,17 @@ function App() {
         onClose={() => setIsMatchesOpen(false)}
         onOpenChat={handleOpenChat}
       />
+
+      {!activeChat && isProfileEditorOpen && (
+        <ProfileEditorModal
+          key={`${currentUserProfile.id}-${currentUserProfile.nickname}-${currentUserProfile.age}-${currentUserProfile.avatar_url || ''}`}
+          open
+          user={authUser}
+          profile={currentUserProfile}
+          onClose={() => setIsProfileEditorOpen(false)}
+          onSaved={handleProfileSaved}
+        />
+      )}
     </>
   )
 }
