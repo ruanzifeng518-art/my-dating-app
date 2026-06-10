@@ -14,6 +14,10 @@ dist-ssr
 .env
 .env.*
 !.env.example
+github-ssh-public-key.txt
+terminal-session-log-*.txt
+*终端数据备份*.txt
+*副本.sql
 
 # Editor directories and files
 .vscode/*
