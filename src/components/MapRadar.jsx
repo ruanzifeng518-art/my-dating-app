@@ -12,6 +12,22 @@ const DEFAULT_VIEW_STATE = {
   zoom: 11.6,
 }
 
+function toRadarErrorMessage(error, fallbackText) {
+  const rawMessage = error instanceof Error ? error.message : String(error || '')
+  const normalized = rawMessage.toLowerCase()
+
+  if (
+    normalized.includes('column profiles.latitude does not exist') ||
+    normalized.includes('column profiles.longitude does not exist') ||
+    normalized.includes('latitude does not exist') ||
+    normalized.includes('longitude does not exist')
+  ) {
+    return '数据库里还没有经纬度字段。请先执行 `supabase_location_radar.sql`，再回来刷新同城雷达。'
+  }
+
+  return rawMessage || fallbackText
+}
+
 function formatDistance(distanceKm) {
   if (!Number.isFinite(distanceKm)) {
     return '未知距离'
@@ -153,7 +169,7 @@ export default function MapRadar({ currentUserId, currentUserProfile, onProfileU
       ])
 
       if (profilesResult.error) {
-        setLoadError(`读取同城资料失败：${profilesResult.error.message}`)
+        setLoadError(`读取同城资料失败：${toRadarErrorMessage(profilesResult.error, '请稍后再试。')}`)
         setNearbyProfiles([])
         setSelectedProfileId(null)
         setIsLoadingProfiles(false)
@@ -161,7 +177,7 @@ export default function MapRadar({ currentUserId, currentUserProfile, onProfileU
       }
 
       if (likesResult.error) {
-        setLoadError(`读取心动记录失败：${likesResult.error.message}`)
+        setLoadError(`读取心动记录失败：${toRadarErrorMessage(likesResult.error, '请稍后再试。')}`)
         setNearbyProfiles([])
         setSelectedProfileId(null)
         setIsLoadingProfiles(false)
@@ -240,7 +256,7 @@ export default function MapRadar({ currentUserId, currentUserProfile, onProfileU
       }))
       await loadNearbyProfiles(coords)
     } catch (error) {
-      setLocationError(error?.message || '定位失败，请确认浏览器已经允许位置权限。')
+      setLocationError(toRadarErrorMessage(error, '定位失败，请确认浏览器已经允许位置权限。'))
     } finally {
       setIsLocating(false)
     }
@@ -345,7 +361,7 @@ export default function MapRadar({ currentUserId, currentUserProfile, onProfileU
       )
       setActionMessage(nextMessage)
     } catch (error) {
-      setActionMessage(error instanceof Error ? error.message : '发送心动失败，请稍后再试。')
+      setActionMessage(toRadarErrorMessage(error, '发送心动失败，请稍后再试。'))
     } finally {
       setIsLiking(false)
     }
