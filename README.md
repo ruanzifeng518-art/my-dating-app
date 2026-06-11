@@ -82,8 +82,9 @@ npm install
 ```bash
 VITE_SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
 VITE_SUPABASE_ANON_KEY=YOUR_ANON_KEY
-VITE_MAPBOX_TOKEN=YOUR_PUBLIC_MAPBOX_TOKEN
 ```
+
+同城雷达地图现在默认会使用公开暗色底图，不再强依赖 `Mapbox Token`。如果你后面想切回自定义 `Mapbox` 地图风格，再额外补 `VITE_MAPBOX_TOKEN` 也可以。
 
 如果你要启用 `AI 红娘`，还需要在服务端环境中额外配置：
 

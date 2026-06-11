@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AlertCircle, Heart, LoaderCircle, LocateFixed, MapPin, RefreshCcw, Sparkles } from 'lucide-react'
-import Map, { Marker, NavigationControl } from 'react-map-gl/mapbox'
-import 'mapbox-gl/dist/mapbox-gl.css'
+import Map, { Marker, NavigationControl } from 'react-map-gl/maplibre'
+import 'maplibre-gl/dist/maplibre-gl.css'
 import { supabase } from '../supabaseClient'
 
-const MAPBOX_STYLE = 'mapbox://styles/mapbox/dark-v11'
+const TOKENLESS_MAP_STYLE = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json'
 const RADAR_RADIUS_KM = 5
 const DEFAULT_VIEW_STATE = {
   longitude: 116.3974,
@@ -72,7 +72,6 @@ function StateCard({ title, description, actionLabel, onAction, helperText, icon
 }
 
 export default function MapRadar({ currentUserId, currentUserProfile, onProfileUpdated }) {
-  const mapboxToken = import.meta.env.VITE_MAPBOX_TOKEN
   const [viewState, setViewState] = useState(DEFAULT_VIEW_STATE)
   const [userLocation, setUserLocation] = useState(() =>
     currentUserProfile?.latitude && currentUserProfile?.longitude
@@ -354,18 +353,6 @@ export default function MapRadar({ currentUserId, currentUserProfile, onProfileU
 
   const nearestHint = nearbyProfiles[0] ? `最近的缘分距离你 ${nearbyProfiles[0].distanceLabel}` : '雷达范围内暂时还没人出现'
 
-  if (!mapboxToken) {
-    return (
-      <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(20,184,166,0.22),_transparent_24%),radial-gradient(circle_at_bottom,_rgba(244,114,182,0.22),_transparent_28%),linear-gradient(180deg,_#0f172a_0%,_#111827_58%,_#111827_100%)] px-4 py-10">
-        <StateCard
-          title="地图令牌还没配置"
-          description="请先在项目根目录的 `.env` 或部署环境里填写 `VITE_MAPBOX_TOKEN`，然后重新启动项目。"
-          helperText="Mapbox 的公开令牌可以放在前端环境变量里，但建议在 Mapbox 后台限制来源域名。"
-        />
-      </main>
-    )
-  }
-
   return (
     <main className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(20,184,166,0.22),_transparent_24%),radial-gradient(circle_at_bottom,_rgba(244,114,182,0.22),_transparent_28%),linear-gradient(180deg,_#0f172a_0%,_#111827_58%,_#111827_100%)] px-4 py-8">
       <div className="pointer-events-none absolute inset-0 opacity-60 radar-grid-overlay" />
@@ -423,8 +410,7 @@ export default function MapRadar({ currentUserId, currentUserProfile, onProfileU
             <Map
               {...viewState}
               onMove={(event) => setViewState(event.viewState)}
-              mapboxAccessToken={mapboxToken}
-              mapStyle={MAPBOX_STYLE}
+              mapStyle={TOKENLESS_MAP_STYLE}
               attributionControl={false}
               reuseMaps
               onClick={() => setSelectedProfileId(null)}

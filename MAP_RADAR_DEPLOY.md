@@ -4,13 +4,13 @@
 
 ## 先说你要准备什么
 
-这个功能依赖三样东西：
+这个功能依赖两样核心数据和一个可选增强项：
 
 1. `Supabase profiles` 表里要有经纬度字段
-2. 前端要配置 `Mapbox Token`
-3. 浏览器或手机要允许定位权限
+2. 浏览器或手机要允许定位权限
+3. `Mapbox Token` 现在是可选的，不再是必填
 
-只要这三项满足，地图就能打开，用户定位就能写库，附近 5 公里内的异性用户就能在地图上显示出来。
+只要数据库字段和定位权限正常，地图就能打开，用户定位就能写库，附近 5 公里内的异性用户就能在地图上显示出来。
 
 ## 第一步：执行 Supabase SQL
 
@@ -28,27 +28,21 @@
 
 如果你已经执行过一次，也可以重复执行，因为脚本里用了 `if not exists`。
 
-## 第二步：配置 Mapbox Token
+## 第二步：确认地图底图方案
 
-你需要去 [Mapbox](https://www.mapbox.com/) 注册或登录账号，然后创建一个公开访问令牌。
+现在项目默认使用公开暗色底图，所以即使没有 `Mapbox Token`，同城雷达也可以先跑起来。
 
-项目里需要的是：
+也就是说，下面这条已经不是必填：
 
 - `VITE_MAPBOX_TOKEN`
 
-你可以在本地 `.env` 里填写：
+如果你后面想切回自己的 `Mapbox` 样式，再在本地 `.env` 或线上环境里补这条即可：
 
 ```bash
-VITE_SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
-VITE_SUPABASE_ANON_KEY=YOUR_ANON_KEY
 VITE_MAPBOX_TOKEN=YOUR_PUBLIC_MAPBOX_TOKEN
 ```
 
-如果你是部署到线上，也要在对应平台的环境变量里加上同样这条：
-
-- `VITE_MAPBOX_TOKEN`
-
-这个令牌是前端公开令牌，可以放到前端环境变量里，但建议你去 `Mapbox` 后台限制允许访问的域名，避免被别人滥用。
+如果你暂时只是为了把功能跑通，可以先完全不配这条。
 
 ## 第三步：重启前端
 
@@ -58,7 +52,7 @@ VITE_MAPBOX_TOKEN=YOUR_PUBLIC_MAPBOX_TOKEN
 npm run dev
 ```
 
-如果不重启，新的环境变量不会生效。
+如果你有新增或修改环境变量，重启以后才会生效。
 
 ## 第四步：怎么验证功能正常
 
@@ -159,6 +153,6 @@ npm run dev
 ## 你现在只要做的事
 
 1. 在 `Supabase` 执行 `supabase_location_radar.sql`
-2. 配置 `VITE_MAPBOX_TOKEN`
-3. 重启项目或重新部署
-4. 登录后点击顶部 `同城雷达`
+2. 重启项目或重新部署
+3. 登录后点击顶部 `同城雷达`
+4. 如果你后面想切回自定义 `Mapbox` 样式，再补 `VITE_MAPBOX_TOKEN`

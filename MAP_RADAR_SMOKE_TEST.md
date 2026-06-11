@@ -7,8 +7,8 @@
 只看三件事：
 
 1. `supabase_location_radar.sql` 已执行
-2. `VITE_MAPBOX_TOKEN` 已配置
-3. 当前环境是 `localhost` 或 `https`
+2. 当前环境是 `localhost` 或 `https`
+3. 项目已经重启过
 
 如果这三项没满足，就先不要开始测。
 
@@ -75,8 +75,8 @@
 
 先查：
 
-- `VITE_MAPBOX_TOKEN` 是否配置
 - 项目有没有重启
+- 控制台里有没有底图加载报错
 
 ### 没有定位
 

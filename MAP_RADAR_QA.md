@@ -7,7 +7,6 @@
 先确认这几项已经准备好：
 
 - 已执行 `supabase_location_radar.sql`
-- `.env` 或线上环境里已经配置 `VITE_MAPBOX_TOKEN`
 - 项目重新启动或重新部署过
 - 当前环境支持 `https` 或 `localhost`
 
@@ -174,12 +173,11 @@
 
 如果地图功能异常，优先看下面这些地方：
 
-1. `VITE_MAPBOX_TOKEN` 没配
-2. `supabase_location_radar.sql` 没执行
-3. 浏览器拒绝了定位
-4. 当前环境不是 `https` 或 `localhost`
-5. 附近异性账号本身没有经纬度
-6. 对方距离其实超过 5 公里
+1. `supabase_location_radar.sql` 没执行
+2. 浏览器拒绝了定位
+3. 当前环境不是 `https` 或 `localhost`
+4. 附近异性账号本身没有经纬度
+5. 对方距离其实超过 5 公里
 
 ## 最终通过标准
 
