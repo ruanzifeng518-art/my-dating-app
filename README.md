@@ -135,6 +135,7 @@ npm run preview
 - `PITCH_5MIN.md`：可直接用于答辩、课程展示或项目汇报的 5 分钟完整版讲稿
 - `PROJECT_CHEATSHEET.md`：答辩前 30 秒快速扫一眼的项目卖点速记卡
 - `FINAL_DELIVERY_CHECKLIST.md`：最终交付清单，适合发老师、同学或面试官
+- `VERCEL_AI_MATCHMAKER_DEPLOY.md`：`AI 红娘` 功能在 `Vercel` 上的逐步部署说明
 
 ## 数据库脚本
 
