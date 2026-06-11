@@ -34,6 +34,9 @@
 - 双向喜欢后自动创建 `matches`
 - 匹配成功弹窗与聊天入口
 - 会话列表与未读状态
+- 同城寻缘雷达地图
+- 浏览器定位写入 `profiles` 经纬度
+- 5 公里范围异性用户地图打点
 - 登录后资料编辑
 - 基于 Supabase Realtime 的即时聊天
 
@@ -42,6 +45,7 @@
 - `React 19`
 - `Vite 8`
 - `Supabase Auth / Database / Realtime`
+- `react-map-gl / mapbox-gl`
 - `lucide-react`
 - `canvas-confetti`
 
@@ -78,6 +82,13 @@ npm install
 ```bash
 VITE_SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
 VITE_SUPABASE_ANON_KEY=YOUR_ANON_KEY
+VITE_MAPBOX_TOKEN=YOUR_PUBLIC_MAPBOX_TOKEN
+```
+
+如果你要启用 `AI 红娘`，还需要在服务端环境中额外配置：
+
+```bash
+DEEPSEEK_API_KEY=YOUR_DEEPSEEK_API_KEY
 ```
 
 3. 启动开发环境
@@ -147,6 +158,7 @@ npm run preview
 - `supabase_auth_policies.sql`：`profiles` 的自写入权限策略
 - `supabase_likes_matches_flow.sql`：`likes / matches` 所需字段与策略
 - `supabase_messages_realtime.sql`：`messages` 表与 Realtime 相关配置
+- `supabase_location_radar.sql`：经纬度字段与同城雷达地图所需结构
 
 推荐执行顺序：
 
@@ -154,6 +166,7 @@ npm run preview
 2. `supabase_auth_policies.sql`
 3. `supabase_likes_matches_flow.sql`
 4. `supabase_messages_realtime.sql`
+5. `supabase_location_radar.sql`
 
 ## 目录结构
 
@@ -178,6 +191,7 @@ src/
 - `src/components/Login.jsx`：登录 / 注册页
 - `src/components/OnboardingFlow.jsx`：首次资料完善
 - `src/components/MatchCardPage.jsx`：配对卡片页
+- `src/components/MapRadar.jsx`：同城寻缘雷达地图
 - `src/components/MatchSuccessModal.jsx`：匹配成功弹窗
 - `src/components/MatchesDrawer.jsx`：会话列表抽屉
 - `src/components/ChatRoom.jsx`：即时聊天室
@@ -196,6 +210,8 @@ src/
 - 会话列表查看最近互动
 - 进入聊天室
 - 消息实时同步
+- 打开雷达地图查看附近异性
+- 点击地图头像直接发送心动
 - 资料编辑并即时刷新显示
 
 ## 适合展示的能力

@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Heart, LoaderCircle, LogOut, MessageCircle, PencilLine, Sparkles } from 'lucide-react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
+import { Compass, Heart, LoaderCircle, LogOut, MessageCircle, PencilLine, Sparkles } from 'lucide-react'
 import ChatRoom from './components/ChatRoom'
 import Login from './components/Login'
 import MatchCardPage from './components/MatchCardPage'
@@ -7,6 +7,8 @@ import MatchesDrawer from './components/MatchesDrawer'
 import OnboardingFlow from './components/OnboardingFlow'
 import ProfileEditorModal from './components/ProfileEditorModal'
 import { isSupabaseConfigured, supabase } from './supabaseClient'
+
+const MapRadar = lazy(() => import('./components/MapRadar'))
 
 function ConfigState() {
   return (
@@ -46,6 +48,7 @@ function App() {
   const [isLoadingProfile, setIsLoadingProfile] = useState(false)
   const [profileLoadError, setProfileLoadError] = useState('')
   const [activeChat, setActiveChat] = useState(null)
+  const [activeView, setActiveView] = useState('cards')
   const [isMatchesOpen, setIsMatchesOpen] = useState(false)
   const [isProfileEditorOpen, setIsProfileEditorOpen] = useState(false)
 
@@ -140,6 +143,7 @@ function App() {
   const handleProfileCompleted = (profile) => {
     setCurrentUserProfile(profile)
     setProfileLoadError('')
+    setActiveView('cards')
   }
 
   const handleProfileSaved = (profile) => {
@@ -149,6 +153,7 @@ function App() {
 
   const handleOpenChat = ({ profile, match }) => {
     setIsMatchesOpen(false)
+    setActiveView('cards')
     setActiveChat({
       profile,
       match,
@@ -167,6 +172,7 @@ function App() {
     setIsMatchesOpen(false)
     setIsProfileEditorOpen(false)
     setActiveChat(null)
+    setActiveView('cards')
     persistCurrentUserId(null)
   }
 
@@ -239,6 +245,22 @@ function App() {
             <div className="flex items-center gap-2">
               <button
                 type="button"
+                onClick={() => {
+                  setIsMatchesOpen(false)
+                  setActiveView((current) => (current === 'radar' ? 'cards' : 'radar'))
+                }}
+                className={`inline-flex items-center gap-2 rounded-full border px-4 py-2.5 text-sm font-medium transition ${
+                  activeView === 'radar'
+                    ? 'border-cyan-200 bg-cyan-50 text-cyan-600'
+                    : 'border-pink-200 bg-white text-slate-600 hover:border-pink-200 hover:bg-pink-50 hover:text-pink-500'
+                }`}
+              >
+                <Compass className="h-4 w-4" />
+                同城雷达
+              </button>
+
+              <button
+                type="button"
                 onClick={() => setIsProfileEditorOpen(true)}
                 className="inline-flex items-center gap-2 rounded-full border border-pink-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 transition hover:border-pink-200 hover:bg-pink-50 hover:text-pink-500"
               >
@@ -285,11 +307,23 @@ function App() {
           onBack={handleCloseChat}
         />
       ) : (
-        <MatchCardPage
-          currentUserId={authUser.id}
-          currentUserProfile={currentUserProfile}
-          onOpenChat={handleOpenChat}
-        />
+        <>
+          {activeView === 'radar' ? (
+            <Suspense fallback={<LoadingState text="正在加载同城雷达地图资源，请稍等..." />}>
+              <MapRadar
+                currentUserId={authUser.id}
+                currentUserProfile={currentUserProfile}
+                onProfileUpdated={handleProfileSaved}
+              />
+            </Suspense>
+          ) : (
+            <MatchCardPage
+              currentUserId={authUser.id}
+              currentUserProfile={currentUserProfile}
+              onOpenChat={handleOpenChat}
+            />
+          )}
+        </>
       )}
 
       <MatchesDrawer

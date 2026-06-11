@@ -128,6 +128,19 @@
   .icebreaker-bubble-rise {
     animation: icebreaker-bubble-rise 2s cubic-bezier(0.2, 0.9, 0.2, 1) both;
   }
+
+  .radar-grid-overlay {
+    background-image:
+      linear-gradient(rgba(148, 163, 184, 0.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(148, 163, 184, 0.06) 1px, transparent 1px),
+      radial-gradient(circle at center, rgba(56, 189, 248, 0.12), transparent 36%);
+    background-size: 40px 40px, 40px 40px, 100% 100%;
+    mask-image: radial-gradient(circle at center, black 42%, transparent 100%);
+  }
+
+  .radar-marker-pulse {
+    animation: radar-marker-pulse 1.9s ease-in-out infinite;
+  }
 }
 
 @keyframes heart-beat {
@@ -317,5 +330,22 @@
   100% {
     opacity: 0;
     transform: translateY(-34px) scale(1.04);
+  }
+}
+
+@keyframes radar-marker-pulse {
+  0% {
+    transform: scale(0.88);
+    opacity: 0.38;
+  }
+
+  50% {
+    transform: scale(1.2);
+    opacity: 0.62;
+  }
+
+  100% {
+    transform: scale(0.88);
+    opacity: 0.38;
   }
 }
