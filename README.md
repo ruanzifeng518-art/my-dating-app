@@ -147,6 +147,7 @@ npm run preview
 - `PROJECT_CHEATSHEET.md`：答辩前 30 秒快速扫一眼的项目卖点速记卡
 - `FINAL_DELIVERY_CHECKLIST.md`：最终交付清单，适合发老师、同学或面试官
 - `VERCEL_AI_MATCHMAKER_DEPLOY.md`：`AI 红娘` 功能在 `Vercel` 上的逐步部署说明
+- `MAP_RADAR_DEPLOY.md`：同城寻缘雷达地图的部署与定位说明
 
 ## 数据库脚本
 
