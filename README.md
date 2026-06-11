@@ -149,6 +149,7 @@ npm run preview
 - `VERCEL_AI_MATCHMAKER_DEPLOY.md`：`AI 红娘` 功能在 `Vercel` 上的逐步部署说明
 - `MAP_RADAR_DEPLOY.md`：同城寻缘雷达地图的部署与定位说明
 - `MAP_RADAR_QA.md`：同城雷达地图的上线前验收清单
+- `MAP_RADAR_SMOKE_TEST.md`：同城雷达地图最快跑通的一条测试路径
 
 ## 数据库脚本
 
