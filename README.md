@@ -150,6 +150,7 @@ npm run preview
 - `MAP_RADAR_DEPLOY.md`：同城寻缘雷达地图的部署与定位说明
 - `MAP_RADAR_QA.md`：同城雷达地图的上线前验收清单
 - `MAP_RADAR_SMOKE_TEST.md`：同城雷达地图最快跑通的一条测试路径
+- `MAP_RADAR_LIVE_DEBUG.md`：同城雷达地图的真实联调指导
 
 ## 数据库脚本
 
