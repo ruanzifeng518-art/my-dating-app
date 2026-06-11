@@ -22,7 +22,9 @@ export default function ChatRoom({
   const [draft, setDraft] = useState('')
   const [isLoading, setIsLoading] = useState(true)
   const [isSending, setIsSending] = useState(false)
+  const [isGeneratingIcebreaker, setIsGeneratingIcebreaker] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
+  const [icebreakerBubble, setIcebreakerBubble] = useState(null)
   const viewportRef = useRef(null)
   const textareaRef = useRef(null)
 
@@ -124,6 +126,18 @@ export default function ChatRoom({
   }, [renderedMessages])
 
   useEffect(() => {
+    if (!icebreakerBubble) {
+      return undefined
+    }
+
+    const timer = window.setTimeout(() => {
+      setIcebreakerBubble(null)
+    }, 2200)
+
+    return () => window.clearTimeout(timer)
+  }, [icebreakerBubble])
+
+  useEffect(() => {
     if (!matchId || !currentUserId) {
       return
     }
@@ -199,6 +213,69 @@ export default function ChatRoom({
     }
 
     event.currentTarget.form?.requestSubmit()
+  }
+
+  const handleGenerateIcebreaker = async () => {
+    if (!matchId || !currentUserId || isGeneratingIcebreaker) {
+      return
+    }
+
+    setIsGeneratingIcebreaker(true)
+    setErrorMessage('')
+
+    const recentMessages = renderedMessages
+      .slice(-5)
+      .map((message) => ({
+        role: message.sender_id === currentUserId ? 'me' : 'peer',
+        speaker: message.sender_id === currentUserId ? currentUserProfile?.nickname || '我' : title,
+        text: message.text,
+        created_at: message.created_at,
+      }))
+
+    try {
+      const response = await fetch('/api/ai-matchmaker', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          matchId,
+          currentUser: {
+            nickname: currentUserProfile?.nickname || '我',
+            interests: currentUserProfile?.interests ?? [],
+          },
+          peerUser: {
+            nickname: title,
+            interests: peerProfile?.interests ?? [],
+          },
+          recentMessages,
+        }),
+      })
+
+      const payload = await response.json().catch(() => ({}))
+
+      if (!response.ok) {
+        throw new Error(payload?.error || 'AI 红娘暂时没想出合适的话术，请稍后再试。')
+      }
+
+      const suggestion = payload?.suggestion?.trim()
+      if (!suggestion) {
+        throw new Error('AI 红娘没有返回有效话术，请稍后再试。')
+      }
+
+      setDraft(suggestion)
+      setIcebreakerBubble({
+        id: Date.now(),
+        text: suggestion,
+      })
+      requestAnimationFrame(() => {
+        textareaRef.current?.focus()
+      })
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'AI 红娘调用失败，请稍后再试。')
+    } finally {
+      setIsGeneratingIcebreaker(false)
+    }
   }
 
   return (
@@ -281,15 +358,37 @@ export default function ChatRoom({
           )}
 
           <form onSubmit={handleSend} className="flex items-end gap-3">
-            <textarea
-              ref={textareaRef}
-              rows="2"
-              value={draft}
-              onChange={(event) => setDraft(event.target.value)}
-              onKeyDown={handleComposerKeyDown}
-              placeholder={`对 ${title} 说点什么...`}
-              className="min-h-[56px] max-h-40 flex-1 resize-none overflow-y-auto rounded-[24px] border border-slate-200 bg-white px-4 py-3 text-sm leading-7 text-slate-700 shadow-sm outline-none placeholder:text-slate-400"
-            />
+            <div className="relative flex-1">
+              {icebreakerBubble && (
+                <div className="pointer-events-none absolute -top-16 left-4 z-10 icebreaker-bubble-rise rounded-full bg-pink-500/95 px-4 py-2 text-xs font-medium text-white shadow-[0_14px_32px_rgba(244,114,182,0.35)]">
+                  AI 红娘已帮你写好破冰话术
+                </div>
+              )}
+
+              <textarea
+                ref={textareaRef}
+                rows="2"
+                value={draft}
+                onChange={(event) => setDraft(event.target.value)}
+                onKeyDown={handleComposerKeyDown}
+                placeholder={`对 ${title} 说点什么...`}
+                className="min-h-[56px] max-h-40 w-full resize-none overflow-y-auto rounded-[24px] border border-slate-200 bg-white px-4 py-3 text-sm leading-7 text-slate-700 shadow-sm outline-none placeholder:text-slate-400"
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={handleGenerateIcebreaker}
+              disabled={isGeneratingIcebreaker || !matchId}
+              className="inline-flex h-14 items-center justify-center gap-2 rounded-full border border-pink-200 bg-pink-50 px-4 text-sm font-medium text-pink-500 shadow-sm transition hover:bg-pink-100 disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {isGeneratingIcebreaker ? (
+                <LoaderCircle className="h-4 w-4 animate-spin" />
+              ) : (
+                <Sparkles className="h-4 w-4 sparkle-twinkle" />
+              )}
+              <span className="hidden sm:inline">AI 红娘</span>
+            </button>
 
             <button
               type="submit"
@@ -303,7 +402,13 @@ export default function ChatRoom({
 
           <div className="mt-3 flex items-center justify-between text-xs text-slate-400">
             <span>{currentUserProfile?.nickname || '当前用户'} 正在聊天中</span>
-            <span>{isSending ? '消息发送中...' : 'Enter 发送，Shift+Enter 换行'}</span>
+            <span>
+              {isGeneratingIcebreaker
+                ? 'AI 红娘正在生成破冰话术...'
+                : isSending
+                  ? '消息发送中...'
+                  : 'AI 红娘一键破冰，Enter 发送，Shift+Enter 换行'}
+            </span>
           </div>
         </footer>
       </section>
