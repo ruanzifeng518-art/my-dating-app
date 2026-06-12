@@ -2,7 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AlertCircle, Heart, LoaderCircle, LocateFixed, MapPin, RefreshCcw, Sparkles } from 'lucide-react'
 import Map, { Marker, NavigationControl } from 'react-map-gl/maplibre'
 import 'maplibre-gl/dist/maplibre-gl.css'
+import VerifiedBadge from './VerifiedBadge'
 import { supabase } from '../supabaseClient'
+import { DAILY_UNVERIFIED_LIKE_LIMIT, getRemainingLikesToday, getStartOfTodayIso, isProfileVerified } from '../utils/verification'
 
 const TOKENLESS_MAP_STYLE = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json'
 const RADAR_RADIUS_KM = 5
@@ -109,6 +111,7 @@ export default function MapRadar({ currentUserId, currentUserProfile, onProfileU
   const [locationError, setLocationError] = useState('')
   const [loadError, setLoadError] = useState('')
   const [actionMessage, setActionMessage] = useState('')
+  const [dailyLikeCount, setDailyLikeCount] = useState(0)
 
   const targetGender = useMemo(() => {
     if (currentUserProfile?.gender === 'male') {
@@ -164,16 +167,24 @@ export default function MapRadar({ currentUserId, currentUserProfile, onProfileU
       setIsLoadingProfiles(true)
       setLoadError('')
 
-      const [profilesResult, likesResult] = await Promise.all([
+      const [profilesResult, likesResult, likeCountResult] = await Promise.all([
         supabase
           .from('profiles')
-          .select('id, nickname, gender, age, avatar_url, bio, interests, latitude, longitude, location_updated_at, created_at')
+          .select(
+            'id, nickname, gender, age, avatar_url, bio, interests, is_verified, latitude, longitude, location_updated_at, created_at',
+          )
           .eq('gender', targetGender)
           .neq('id', currentUserId)
           .not('latitude', 'is', null)
           .not('longitude', 'is', null)
           .order('created_at', { ascending: true }),
         supabase.from('likes').select('to_user, status').eq('from_user', currentUserId),
+        supabase
+          .from('likes')
+          .select('*', { count: 'exact', head: true })
+          .eq('from_user', currentUserId)
+          .eq('status', 'like')
+          .gte('created_at', getStartOfTodayIso()),
       ])
 
       if (profilesResult.error) {
@@ -186,6 +197,14 @@ export default function MapRadar({ currentUserId, currentUserProfile, onProfileU
 
       if (likesResult.error) {
         setLoadError(`读取心动记录失败：${toRadarErrorMessage(likesResult.error, '请稍后再试。')}`)
+        setNearbyProfiles([])
+        setSelectedProfileId(null)
+        setIsLoadingProfiles(false)
+        return
+      }
+
+      if (likeCountResult.error) {
+        setLoadError(`读取今日心动次数失败：${toRadarErrorMessage(likeCountResult.error, '请稍后再试。')}`)
         setNearbyProfiles([])
         setSelectedProfileId(null)
         setIsLoadingProfiles(false)
@@ -209,12 +228,14 @@ export default function MapRadar({ currentUserId, currentUserProfile, onProfileU
             avatar: buildAvatar(profile),
             tags: Array.isArray(profile.interests) ? profile.interests : [],
             liked: likedSet.has(profile.id),
+            is_verified: Boolean(profile.is_verified),
           }
         })
         .filter((profile) => Number.isFinite(profile.distanceKm) && profile.distanceKm <= RADAR_RADIUS_KM)
         .sort((first, second) => first.distanceKm - second.distanceKm)
 
       setNearbyProfiles(profiles)
+      setDailyLikeCount(likeCountResult.count ?? 0)
       setSelectedProfileId((currentId) => {
         if (currentId && profiles.some((profile) => profile.id === currentId)) {
           return currentId
@@ -351,6 +372,11 @@ export default function MapRadar({ currentUserId, currentUserProfile, onProfileU
       return
     }
 
+    if (!isProfileVerified(currentUserProfile) && dailyLikeCount >= DAILY_UNVERIFIED_LIKE_LIMIT) {
+      setActionMessage(`未认证用户每天最多喜欢 ${DAILY_UNVERIFIED_LIKE_LIMIT} 次，完成真人认证后可解除限制。`)
+      return
+    }
+
     setIsLiking(true)
     setActionMessage('')
 
@@ -360,6 +386,7 @@ export default function MapRadar({ currentUserId, currentUserProfile, onProfileU
           from_user: currentUserId,
           to_user: selectedProfile.id,
           status: 'like',
+          created_at: new Date().toISOString(),
         },
         { onConflict: 'from_user,to_user' },
       )
@@ -390,6 +417,7 @@ export default function MapRadar({ currentUserId, currentUserProfile, onProfileU
       setNearbyProfiles((prev) =>
         prev.map((profile) => (profile.id === selectedProfile.id ? { ...profile, liked: true } : profile)),
       )
+      setDailyLikeCount((prev) => prev + 1)
       setActionMessage(nextMessage)
     } catch (error) {
       setActionMessage(toRadarErrorMessage(error, '发送心动失败，请稍后再试。'))
@@ -399,6 +427,7 @@ export default function MapRadar({ currentUserId, currentUserProfile, onProfileU
   }
 
   const nearestHint = nearbyProfiles[0] ? `最近的缘分距离你 ${nearbyProfiles[0].distanceLabel}` : '雷达范围内暂时还没人出现'
+  const remainingLikesToday = getRemainingLikesToday(currentUserProfile, dailyLikeCount)
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(20,184,166,0.22),_transparent_24%),radial-gradient(circle_at_bottom,_rgba(244,114,182,0.22),_transparent_28%),linear-gradient(180deg,_#0f172a_0%,_#111827_58%,_#111827_100%)] px-4 py-8">
@@ -418,6 +447,11 @@ export default function MapRadar({ currentUserId, currentUserProfile, onProfileU
 
           <div className="flex flex-col gap-3 lg:items-end">
             <div className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200">{nearestHint}</div>
+            <div className="text-xs text-slate-400">
+              {isProfileVerified(currentUserProfile)
+                ? '你已完成真人认证，雷达页的心动次数不受限制。'
+                : `未认证用户今日还可喜欢 ${remainingLikesToday} 次，完成真人认证后可解除限制。`}
+            </div>
             <div className="flex flex-wrap gap-3 lg:justify-end">
               <button
                 type="button"
@@ -536,7 +570,13 @@ export default function MapRadar({ currentUserId, currentUserProfile, onProfileU
                     <div className="space-y-2">
                       <div className="flex flex-wrap items-center gap-3">
                         <h2 className="text-2xl font-semibold text-white">
-                          {selectedProfile.nickname} <span className="text-slate-400">{selectedProfile.age}</span>
+                          {selectedProfile.nickname}
+                          {selectedProfile.is_verified && (
+                            <span className="ml-2 inline-flex align-middle">
+                              <VerifiedBadge compact />
+                            </span>
+                          )}{' '}
+                          <span className="text-slate-400">{selectedProfile.age}</span>
                         </h2>
                         <span className="inline-flex items-center gap-1 rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1 text-xs font-medium text-cyan-100">
                           <MapPin className="h-3.5 w-3.5" />
@@ -563,7 +603,11 @@ export default function MapRadar({ currentUserId, currentUserProfile, onProfileU
                     <button
                       type="button"
                       onClick={() => void handleLike()}
-                      disabled={isLiking || selectedProfile.liked}
+                      disabled={
+                        isLiking ||
+                        selectedProfile.liked ||
+                        (!isProfileVerified(currentUserProfile) && remainingLikesToday <= 0)
+                      }
                       className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-pink-500 to-rose-400 px-5 py-3 text-sm font-medium text-white shadow-lg shadow-pink-500/20 transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-70"
                     >
                       {isLiking ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Heart className="h-4 w-4" />}

@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { Camera, Check, LoaderCircle, Sparkles } from 'lucide-react'
+import LivenessVerificationCard from './LivenessVerificationCard'
 import { supabase } from '../supabaseClient'
 
 const INTEREST_OPTIONS = [
@@ -21,6 +22,20 @@ function buildDefaultAvatar(seed) {
   return `https://api.dicebear.com/9.x/notionists/svg?seed=${encodeURIComponent(seed)}`
 }
 
+function validateProfileForm(form) {
+  if (!form.nickname.trim()) {
+    throw new Error('请先填写昵称，再进行真人认证。')
+  }
+
+  if (!form.age || Number(form.age) < 18) {
+    throw new Error('年龄需要是 18 岁以上，才能发起真人认证。')
+  }
+
+  if (form.interests.length === 0) {
+    throw new Error('至少选择一个兴趣标签，再进行真人认证。')
+  }
+}
+
 export default function OnboardingFlow({ user, onComplete }) {
   const defaultNickname = useMemo(
     () => user.user_metadata?.nickname || user.email?.split('@')[0] || '新用户',
@@ -37,6 +52,7 @@ export default function OnboardingFlow({ user, onComplete }) {
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
+  const [isVerified, setIsVerified] = useState(false)
 
   const toggleInterest = (interest) => {
     setForm((prev) => {
@@ -55,28 +71,10 @@ export default function OnboardingFlow({ user, onComplete }) {
     setForm((prev) => ({ ...prev, [name]: value }))
   }
 
-  const handleSubmit = async (event) => {
-    event.preventDefault()
-    setErrorMessage('')
+  const buildProfilePayload = useCallback(() => {
+    validateProfileForm(form)
 
-    if (!form.nickname.trim()) {
-      setErrorMessage('请先填写昵称。')
-      return
-    }
-
-    if (!form.age || Number(form.age) < 18) {
-      setErrorMessage('年龄需要是 18 岁以上。')
-      return
-    }
-
-    if (form.interests.length === 0) {
-      setErrorMessage('至少选择一个兴趣标签。')
-      return
-    }
-
-    setIsSubmitting(true)
-
-    const profilePayload = {
+    return {
       id: user.id,
       nickname: form.nickname.trim(),
       gender: form.gender,
@@ -84,7 +82,37 @@ export default function OnboardingFlow({ user, onComplete }) {
       avatar_url: form.avatarUrl.trim() || buildDefaultAvatar(form.nickname.trim()),
       bio: form.bio.trim(),
       interests: form.interests,
+      is_verified: isVerified,
     }
+  }, [form, isVerified, user.id])
+
+  const persistVerifiedProfile = useCallback(
+    async (payload) => {
+      const { data, error } = await supabase.from('profiles').upsert(payload, { onConflict: 'id' }).select('*').single()
+
+      if (error) {
+        throw error
+      }
+
+      setIsVerified(true)
+      return data
+    },
+    [setIsVerified],
+  )
+
+  const handleSubmit = async (event) => {
+    event.preventDefault()
+    setErrorMessage('')
+
+    try {
+      validateProfileForm(form)
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message.replace('，再进行真人认证', '') : '请先完善资料。')
+      return
+    }
+
+    setIsSubmitting(true)
+    const profilePayload = buildProfilePayload()
 
     const { data, error } = await supabase
       .from('profiles')
@@ -126,7 +154,7 @@ export default function OnboardingFlow({ user, onComplete }) {
               '上传头像或输入头像 URL',
               '选择性别并填写年龄',
               '勾选你的兴趣标签',
-              '提交后自动进入匹配卡片页',
+              '完成真人认证后会亮起官方蓝底白勾',
             ].map((item, index) => (
               <div key={item} className="flex items-center gap-4 rounded-[26px] bg-pink-50/80 p-4">
                 <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-sm font-semibold text-pink-500 shadow-sm">
@@ -255,6 +283,13 @@ export default function OnboardingFlow({ user, onComplete }) {
                   })}
                 </div>
               </div>
+
+              <LivenessVerificationCard
+                isVerified={isVerified}
+                getProfilePayload={buildProfilePayload}
+                onVerifySuccess={persistVerifiedProfile}
+                errorMessage={errorMessage}
+              />
 
               {errorMessage && (
                 <div className="rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm text-rose-500">

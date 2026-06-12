@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AlertCircle, Heart, MapPin, RefreshCcw, Sparkles, Star, TrendingUp, UserRoundCheck, WandSparkles, X } from 'lucide-react'
 import MatchSuccessModal from './MatchSuccessModal'
+import VerifiedBadge from './VerifiedBadge'
 import { isSupabaseConfigured, supabase } from '../supabaseClient'
+import { DAILY_UNVERIFIED_LIKE_LIMIT, getRemainingLikesToday, getStartOfTodayIso, isProfileVerified } from '../utils/verification'
 
 const ANIMATION_DURATION = 320
 const SWIPE_THRESHOLD = 110
@@ -40,6 +42,7 @@ function mapProfileRows(rows) {
       id: row.id,
       name: row.nickname,
       age: row.age,
+      isVerified: Boolean(row.is_verified),
       distance: DISTANCE_PRESETS[index % DISTANCE_PRESETS.length],
       sign: row.bio?.trim() || fallbackBio,
       tags,
@@ -63,6 +66,7 @@ export default function MatchCardPage({ currentUserId, currentUserProfile, onOpe
   const [isLoadingProfiles, setIsLoadingProfiles] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [actionError, setActionError] = useState('')
+  const [dailyLikeCount, setDailyLikeCount] = useState(0)
   const dragStartX = useRef(null)
   const pendingNextIndex = useRef(null)
 
@@ -97,10 +101,10 @@ export default function MatchCardPage({ currentUserId, currentUserProfile, onOpe
     setActionError('')
 
     const targetGender = currentUserProfile.gender === 'male' ? 'female' : 'male'
-    const [profilesResult, likesResult] = await Promise.all([
+    const [profilesResult, likesResult, likeCountResult] = await Promise.all([
       supabase
         .from('profiles')
-        .select('id, nickname, gender, age, avatar_url, bio, interests, created_at')
+        .select('id, nickname, gender, age, avatar_url, bio, interests, is_verified, created_at')
         .eq('gender', targetGender)
         .neq('id', currentUserId)
         .order('created_at', { ascending: true }),
@@ -108,6 +112,12 @@ export default function MatchCardPage({ currentUserId, currentUserProfile, onOpe
         .from('likes')
         .select('to_user')
         .eq('from_user', currentUserId),
+      supabase
+        .from('likes')
+        .select('*', { count: 'exact', head: true })
+        .eq('from_user', currentUserId)
+        .eq('status', 'like')
+        .gte('created_at', getStartOfTodayIso()),
     ])
 
     if (profilesResult.error) {
@@ -124,11 +134,19 @@ export default function MatchCardPage({ currentUserId, currentUserProfile, onOpe
       return
     }
 
+    if (likeCountResult.error) {
+      setProfiles([])
+      setLoadError(`读取今日点赞次数失败：${likeCountResult.error.message}`)
+      setIsLoadingProfiles(false)
+      return
+    }
+
     const reactedIds = new Set((likesResult.data ?? []).map((item) => item.to_user))
     const visibleRows = (profilesResult.data ?? []).filter((row) => !reactedIds.has(row.id))
     const mappedProfiles = mapProfileRows(visibleRows)
 
     setProfiles(mappedProfiles)
+    setDailyLikeCount(likeCountResult.count ?? 0)
     setCurrentIndex(0)
     setMatchedProfile(null)
     setMatchedRecord(null)
@@ -140,76 +158,12 @@ export default function MatchCardPage({ currentUserId, currentUserProfile, onOpe
   }, [currentUserId, currentUserProfile])
 
   useEffect(() => {
-    let cancelled = false
+    const timer = window.setTimeout(() => {
+      void loadProfiles()
+    }, 0)
 
-    const run = async () => {
-      if (!isSupabaseConfigured || !supabase || !currentUserProfile?.gender || !currentUserId) {
-        if (cancelled) {
-          return
-        }
-
-        setLoadError('当前登录用户资料还没准备好，请稍后重试。')
-        setProfiles([])
-        setIsLoadingProfiles(false)
-        return
-      }
-
-      setIsLoadingProfiles(true)
-      setLoadError('')
-      setActionError('')
-
-      const targetGender = currentUserProfile.gender === 'male' ? 'female' : 'male'
-      const [profilesResult, likesResult] = await Promise.all([
-        supabase
-          .from('profiles')
-          .select('id, nickname, gender, age, avatar_url, bio, interests, created_at')
-          .eq('gender', targetGender)
-          .neq('id', currentUserId)
-          .order('created_at', { ascending: true }),
-        supabase
-          .from('likes')
-          .select('to_user')
-          .eq('from_user', currentUserId),
-      ])
-
-      if (cancelled) {
-        return
-      }
-
-      if (profilesResult.error) {
-        setProfiles([])
-        setLoadError(`读取 Supabase 数据失败：${profilesResult.error.message}`)
-        setIsLoadingProfiles(false)
-        return
-      }
-
-      if (likesResult.error) {
-        setProfiles([])
-        setLoadError(`读取点赞记录失败：${likesResult.error.message}`)
-        setIsLoadingProfiles(false)
-        return
-      }
-
-      const reactedIds = new Set((likesResult.data ?? []).map((item) => item.to_user))
-      const visibleRows = (profilesResult.data ?? []).filter((row) => !reactedIds.has(row.id))
-      const mappedProfiles = mapProfileRows(visibleRows)
-      setProfiles(mappedProfiles)
-      setCurrentIndex(0)
-      setMatchedProfile(null)
-      setMatchedRecord(null)
-      setActionType(null)
-      setIsAnimating(false)
-      setDragOffset(0)
-      pendingNextIndex.current = null
-      setIsLoadingProfiles(false)
-    }
-
-    run()
-
-    return () => {
-      cancelled = true
-    }
-  }, [currentUserId, currentUserProfile])
+    return () => window.clearTimeout(timer)
+  }, [loadProfiles])
 
   const moveToNextProfile = useCallback(() => {
     if (pendingNextIndex.current !== null) {
@@ -267,6 +221,7 @@ export default function MatchCardPage({ currentUserId, currentUserProfile, onOpe
           from_user: currentUserId,
           to_user: profile.id,
           status,
+          created_at: new Date().toISOString(),
         },
         { onConflict: 'from_user,to_user' },
       )
@@ -304,11 +259,20 @@ export default function MatchCardPage({ currentUserId, currentUserProfile, onOpe
     }
 
     setActionError('')
+
+    if (type === 'like' && !isProfileVerified(currentUserProfile) && dailyLikeCount >= DAILY_UNVERIFIED_LIKE_LIMIT) {
+      setActionError(`未认证用户每天最多喜欢 ${DAILY_UNVERIFIED_LIKE_LIMIT} 次，完成真人认证后可解除限制。`)
+      return
+    }
+
     setActionType(type)
     setIsAnimating(true)
 
     try {
       const matchRecord = await persistReaction(type, currentProfile)
+      if (type === 'like') {
+        setDailyLikeCount((prev) => prev + 1)
+      }
 
       window.setTimeout(() => {
         if (matchRecord) {
@@ -427,6 +391,10 @@ export default function MatchCardPage({ currentUserId, currentUserProfile, onOpe
     const bioScore = currentProfile.sign.length > 14 ? 18 : 10
     return Math.min(98, 44 + sharedScore + tagScore + bioScore)
   }, [currentProfile, sharedTags.length])
+  const remainingLikesToday = useMemo(
+    () => getRemainingLikesToday(currentUserProfile, dailyLikeCount),
+    [currentUserProfile, dailyLikeCount],
+  )
 
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(251,113,133,0.26),_transparent_24%),radial-gradient(circle_at_bottom,_rgba(244,114,182,0.22),_transparent_28%),linear-gradient(180deg,_#fff8fb_0%,_#fff_50%,_#fff5f7_100%)] px-4 py-10">
@@ -470,6 +438,21 @@ export default function MatchCardPage({ currentUserId, currentUserProfile, onOpe
                 className="h-full rounded-full bg-gradient-to-r from-pink-500 to-rose-400 transition-all duration-300"
                 style={{ width: `${progressPercent}%` }}
               />
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+              {isProfileVerified(currentUserProfile) ? (
+                <>
+                  <VerifiedBadge label="你已完成真人认证" />
+                  <span>今日喜欢次数不受限制</span>
+                </>
+              ) : (
+                <>
+                  <span className="rounded-full bg-slate-100 px-3 py-1.5 text-slate-600">
+                    未认证用户今日还可喜欢 {remainingLikesToday} 次
+                  </span>
+                  <span>完成真人认证后可解除限制</span>
+                </>
+              )}
             </div>
           </div>
 
@@ -544,6 +527,7 @@ export default function MatchCardPage({ currentUserId, currentUserProfile, onOpe
                       <div>
                         <h2 className="text-3xl font-semibold">
                           {currentProfile.name}
+                          {currentProfile.isVerified && <span className="ml-2 inline-flex align-middle"><VerifiedBadge compact /></span>}
                           <span className="ml-2 text-2xl font-medium text-white/90">
                             {currentProfile.age}
                           </span>
@@ -606,7 +590,7 @@ export default function MatchCardPage({ currentUserId, currentUserProfile, onOpe
 
                 <button
                   type="button"
-                  disabled={isAnimating}
+                  disabled={isAnimating || (!isProfileVerified(currentUserProfile) && remainingLikesToday <= 0)}
                   onClick={() => void handleAction('like')}
                   className="flex h-[80px] w-[80px] items-center justify-center rounded-full bg-gradient-to-br from-pink-500 to-rose-400 text-white shadow-[0_18px_36px_rgba(244,114,182,0.45)] transition hover:-translate-y-1 hover:from-pink-400 hover:to-rose-300 disabled:cursor-not-allowed disabled:opacity-60"
                   aria-label="喜欢"

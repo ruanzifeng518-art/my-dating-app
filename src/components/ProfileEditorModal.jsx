@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { Camera, Check, LoaderCircle, PencilLine, Sparkles, X } from 'lucide-react'
+import LivenessVerificationCard from './LivenessVerificationCard'
 import { supabase } from '../supabaseClient'
 
 const INTEREST_OPTIONS = [
@@ -21,11 +22,22 @@ function buildDefaultAvatar(seed) {
   return `https://api.dicebear.com/9.x/notionists/svg?seed=${encodeURIComponent(seed)}`
 }
 
+function validateProfileForm(form) {
+  if (!form.nickname.trim()) {
+    throw new Error('请先填写昵称，再进行真人认证。')
+  }
+
+  if (!form.age || Number(form.age) < 18) {
+    throw new Error('年龄需要是 18 岁以上，才能发起真人认证。')
+  }
+
+  if (form.interests.length === 0) {
+    throw new Error('至少选择一个兴趣标签，再进行真人认证。')
+  }
+}
+
 export default function ProfileEditorModal({ open, user, profile, onClose, onSaved }) {
-  const defaultNickname = useMemo(
-    () => profile?.nickname || user?.user_metadata?.nickname || user?.email?.split('@')[0] || '新用户',
-    [profile?.nickname, user?.email, user?.user_metadata?.nickname],
-  )
+  const defaultNickname = profile?.nickname || user?.user_metadata?.nickname || user?.email?.split('@')[0] || '新用户'
 
   const [form, setForm] = useState({
     nickname: defaultNickname,
@@ -37,10 +49,7 @@ export default function ProfileEditorModal({ open, user, profile, onClose, onSav
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
-
-  if (!open) {
-    return null
-  }
+  const [isVerified, setIsVerified] = useState(Boolean(profile?.is_verified))
 
   const toggleInterest = (interest) => {
     setForm((prev) => {
@@ -57,28 +66,10 @@ export default function ProfileEditorModal({ open, user, profile, onClose, onSav
     setForm((prev) => ({ ...prev, [name]: value }))
   }
 
-  const handleSubmit = async (event) => {
-    event.preventDefault()
-    setErrorMessage('')
+  const buildProfilePayload = useCallback(() => {
+    validateProfileForm(form)
 
-    if (!form.nickname.trim()) {
-      setErrorMessage('请先填写昵称。')
-      return
-    }
-
-    if (!form.age || Number(form.age) < 18) {
-      setErrorMessage('年龄需要是 18 岁以上。')
-      return
-    }
-
-    if (form.interests.length === 0) {
-      setErrorMessage('至少选择一个兴趣标签。')
-      return
-    }
-
-    setIsSubmitting(true)
-
-    const payload = {
+    return {
       id: user.id,
       nickname: form.nickname.trim(),
       gender: form.gender,
@@ -86,7 +77,38 @@ export default function ProfileEditorModal({ open, user, profile, onClose, onSav
       avatar_url: form.avatarUrl.trim() || buildDefaultAvatar(form.nickname.trim()),
       bio: form.bio.trim(),
       interests: form.interests,
+      is_verified: isVerified,
     }
+  }, [form, isVerified, user.id])
+
+  const persistVerifiedProfile = useCallback(
+    async (payload) => {
+      const { data, error } = await supabase.from('profiles').upsert(payload, { onConflict: 'id' }).select('*').single()
+
+      if (error) {
+        throw error
+      }
+
+      setIsVerified(true)
+      onSaved?.(data)
+      return data
+    },
+    [onSaved],
+  )
+
+  const handleSubmit = async (event) => {
+    event.preventDefault()
+    setErrorMessage('')
+
+    try {
+      validateProfileForm(form)
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message.replace('，再进行真人认证', '') : '请先完善资料。')
+      return
+    }
+
+    setIsSubmitting(true)
+    const payload = buildProfilePayload()
 
     const { data, error } = await supabase.from('profiles').upsert(payload, { onConflict: 'id' }).select('*').single()
 
@@ -99,6 +121,10 @@ export default function ProfileEditorModal({ open, user, profile, onClose, onSav
     setIsSubmitting(false)
     onSaved?.(data)
     onClose?.()
+  }
+
+  if (!open) {
+    return null
   }
 
   return (
@@ -242,6 +268,14 @@ export default function ProfileEditorModal({ open, user, profile, onClose, onSav
               })}
             </div>
           </div>
+
+          <LivenessVerificationCard
+            compact
+            isVerified={isVerified}
+            getProfilePayload={buildProfilePayload}
+            onVerifySuccess={persistVerifiedProfile}
+            errorMessage={errorMessage}
+          />
 
           {errorMessage && (
             <div className="rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm text-rose-500">
