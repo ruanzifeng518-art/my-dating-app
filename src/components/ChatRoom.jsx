@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowLeft, LoaderCircle, SendHorizonal, Sparkles } from 'lucide-react'
 import { supabase } from '../supabaseClient'
+import { generateDeepseekIcebreaker } from '../utils/deepseek'
 import { setLastReadAt } from '../utils/chatReadState'
 
 function formatMessageTime(value) {
@@ -233,35 +234,17 @@ export default function ChatRoom({
       }))
 
     try {
-      const response = await fetch('/api/ai-matchmaker', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      const suggestion = await generateDeepseekIcebreaker({
+        currentUser: {
+          nickname: currentUserProfile?.nickname || '我',
+          interests: currentUserProfile?.interests ?? [],
         },
-        body: JSON.stringify({
-          matchId,
-          currentUser: {
-            nickname: currentUserProfile?.nickname || '我',
-            interests: currentUserProfile?.interests ?? [],
-          },
-          peerUser: {
-            nickname: title,
-            interests: peerProfile?.interests ?? [],
-          },
-          recentMessages,
-        }),
+        peerUser: {
+          nickname: title,
+          interests: peerProfile?.interests ?? [],
+        },
+        recentMessages,
       })
-
-      const payload = await response.json().catch(() => ({}))
-
-      if (!response.ok) {
-        throw new Error(payload?.error || 'AI 红娘暂时没想出合适的话术，请稍后再试。')
-      }
-
-      const suggestion = payload?.suggestion?.trim()
-      if (!suggestion) {
-        throw new Error('AI 红娘没有返回有效话术，请稍后再试。')
-      }
 
       setDraft(suggestion)
       setIcebreakerBubble({

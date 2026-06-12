@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AlertCircle, Heart, LoaderCircle, LocateFixed, MapPin, RefreshCcw, Sparkles } from 'lucide-react'
-import Map, { Marker, NavigationControl } from 'react-map-gl/maplibre'
-import 'maplibre-gl/dist/maplibre-gl.css'
+import Map, { Marker, NavigationControl } from 'react-map-gl/mapbox'
+import 'mapbox-gl/dist/mapbox-gl.css'
 import VerifiedBadge from './VerifiedBadge'
 import { supabase } from '../supabaseClient'
 import { DAILY_UNVERIFIED_LIKE_LIMIT, getRemainingLikesToday, getStartOfTodayIso, isProfileVerified } from '../utils/verification'
 
-const TOKENLESS_MAP_STYLE = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json'
+const MAPBOX_ACCESS_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN
+const MAPBOX_STYLE = 'mapbox://styles/mapbox/dark-v11'
 const RADAR_RADIUS_KM = 5
 const DEFAULT_VIEW_STATE = {
   longitude: 116.3974,
@@ -181,7 +182,7 @@ export default function MapRadar({ currentUserId, currentUserProfile, onProfileU
         supabase.from('likes').select('to_user, status').eq('from_user', currentUserId),
         supabase
           .from('likes')
-          .select('*', { count: 'exact', head: true })
+          .select('id', { count: 'exact', head: true })
           .eq('from_user', currentUserId)
           .eq('status', 'like')
           .gte('created_at', getStartOfTodayIso()),
@@ -429,8 +430,24 @@ export default function MapRadar({ currentUserId, currentUserProfile, onProfileU
   const nearestHint = nearbyProfiles[0] ? `最近的缘分距离你 ${nearbyProfiles[0].distanceLabel}` : '雷达范围内暂时还没人出现'
   const remainingLikesToday = getRemainingLikesToday(currentUserProfile, dailyLikeCount)
 
+  if (!MAPBOX_ACCESS_TOKEN) {
+    return (
+      <main className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(20,184,166,0.22),_transparent_24%),radial-gradient(circle_at_bottom,_rgba(244,114,182,0.22),_transparent_28%),linear-gradient(180deg,_#0f172a_0%,_#111827_58%,_#111827_100%)] px-4 pb-32 pt-8">
+        <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-col gap-6">
+          <StateCard
+            title="Mapbox 还没有准备好"
+            description="当前环境未读取到 `VITE_MAPBOX_ACCESS_TOKEN`，所以无法加载粉黑极简地图。"
+            helperText="请确认 `.env` 已经配置好 Mapbox Token，并重启前端开发服务。"
+            actionLabel={import.meta.env.DEV ? '使用演示坐标继续联调' : undefined}
+            onAction={import.meta.env.DEV ? () => void applyDemoCoordinates() : undefined}
+          />
+        </div>
+      </main>
+    )
+  }
+
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(20,184,166,0.22),_transparent_24%),radial-gradient(circle_at_bottom,_rgba(244,114,182,0.22),_transparent_28%),linear-gradient(180deg,_#0f172a_0%,_#111827_58%,_#111827_100%)] px-4 py-8">
+    <main className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(20,184,166,0.22),_transparent_24%),radial-gradient(circle_at_bottom,_rgba(244,114,182,0.22),_transparent_28%),linear-gradient(180deg,_#0f172a_0%,_#111827_58%,_#111827_100%)] px-4 pb-32 pt-8">
       <div className="pointer-events-none absolute inset-0 opacity-60 radar-grid-overlay" />
       <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-col gap-6">
         <div className="flex flex-col gap-4 rounded-[30px] border border-white/10 bg-slate-950/55 px-5 py-5 shadow-[0_24px_80px_rgba(15,23,42,0.45)] backdrop-blur-xl lg:flex-row lg:items-center lg:justify-between">
@@ -463,15 +480,17 @@ export default function MapRadar({ currentUserId, currentUserProfile, onProfileU
                 {userLocation ? '刷新我的定位' : '开启雷达定位'}
               </button>
 
-              <button
-                type="button"
-                onClick={() => void applyDemoCoordinates()}
-                disabled={isLocating}
-                className="inline-flex items-center gap-2 rounded-full border border-cyan-300/25 bg-cyan-400/10 px-5 py-3 text-sm font-medium text-cyan-50 transition hover:bg-cyan-400/15 disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                <MapPin className="h-4 w-4" />
-                使用演示坐标
-              </button>
+              {import.meta.env.DEV && (
+                <button
+                  type="button"
+                  onClick={() => void applyDemoCoordinates()}
+                  disabled={isLocating}
+                  className="inline-flex items-center gap-2 rounded-full border border-cyan-300/25 bg-cyan-400/10 px-5 py-3 text-sm font-medium text-cyan-50 transition hover:bg-cyan-400/15 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  <MapPin className="h-4 w-4" />
+                  使用演示坐标
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -503,10 +522,12 @@ export default function MapRadar({ currentUserId, currentUserProfile, onProfileU
             <Map
               {...viewState}
               onMove={(event) => setViewState(event.viewState)}
-              mapStyle={TOKENLESS_MAP_STYLE}
+              mapStyle={MAPBOX_STYLE}
+              mapboxAccessToken={MAPBOX_ACCESS_TOKEN}
               attributionControl={false}
               reuseMaps
               onClick={() => setSelectedProfileId(null)}
+              style={{ width: '100%', height: '100%' }}
             >
               <NavigationControl position="top-right" />
 
@@ -611,7 +632,7 @@ export default function MapRadar({ currentUserId, currentUserProfile, onProfileU
                       className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-pink-500 to-rose-400 px-5 py-3 text-sm font-medium text-white shadow-lg shadow-pink-500/20 transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-70"
                     >
                       {isLiking ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Heart className="h-4 w-4" />}
-                      {selectedProfile.liked ? '已发送心动' : '直接心动点赞'}
+                      {selectedProfile.liked ? '已发送心动' : '心动点赞'}
                     </button>
                     <p className="text-center text-xs leading-6 text-slate-400">
                       点击头像可以快速切换查看，点击地图空白处会收起资料卡。

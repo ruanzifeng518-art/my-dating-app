@@ -114,7 +114,7 @@ export default function MatchCardPage({ currentUserId, currentUserProfile, onOpe
         .eq('from_user', currentUserId),
       supabase
         .from('likes')
-        .select('*', { count: 'exact', head: true })
+          .select('id', { count: 'exact', head: true })
         .eq('from_user', currentUserId)
         .eq('status', 'like')
         .gte('created_at', getStartOfTodayIso()),
@@ -397,7 +397,7 @@ export default function MatchCardPage({ currentUserId, currentUserProfile, onOpe
   )
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(251,113,133,0.26),_transparent_24%),radial-gradient(circle_at_bottom,_rgba(244,114,182,0.22),_transparent_28%),linear-gradient(180deg,_#fff8fb_0%,_#fff_50%,_#fff5f7_100%)] px-4 py-10">
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(251,113,133,0.26),_transparent_24%),radial-gradient(circle_at_bottom,_rgba(244,114,182,0.22),_transparent_28%),linear-gradient(180deg,_#fff8fb_0%,_#fff_50%,_#fff5f7_100%)] px-4 pb-32 pt-8">
       <div className="absolute left-0 top-0 h-72 w-72 rounded-full bg-pink-200/30 blur-3xl" />
       <div className="absolute bottom-10 right-0 h-80 w-80 rounded-full bg-rose-300/20 blur-3xl" />
 

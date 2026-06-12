@@ -1,9 +1,11 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
-import { Compass, Heart, LoaderCircle, LogOut, MessageCircle, PencilLine, Sparkles } from 'lucide-react'
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
+import { LoaderCircle, Sparkles } from 'lucide-react'
+import BottomTabBar from './components/BottomTabBar'
 import ChatRoom from './components/ChatRoom'
 import Login from './components/Login'
 import MatchCardPage from './components/MatchCardPage'
-import MatchesDrawer from './components/MatchesDrawer'
+import MessagesPage from './components/MessagesPage'
+import MyProfileCenter from './components/MyProfileCenter'
 import OnboardingFlow from './components/OnboardingFlow'
 import ProfileEditorModal from './components/ProfileEditorModal'
 import { isSupabaseConfigured, supabase } from './supabaseClient'
@@ -48,9 +50,9 @@ function App() {
   const [isLoadingProfile, setIsLoadingProfile] = useState(false)
   const [profileLoadError, setProfileLoadError] = useState('')
   const [activeChat, setActiveChat] = useState(null)
-  const [activeView, setActiveView] = useState('cards')
-  const [isMatchesOpen, setIsMatchesOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState('cards')
   const [isProfileEditorOpen, setIsProfileEditorOpen] = useState(false)
+  const [unreadCount, setUnreadCount] = useState(0)
 
   const persistCurrentUserId = useCallback((userId) => {
     if (userId) {
@@ -143,7 +145,7 @@ function App() {
   const handleProfileCompleted = (profile) => {
     setCurrentUserProfile(profile)
     setProfileLoadError('')
-    setActiveView('cards')
+    setActiveTab('cards')
   }
 
   const handleProfileSaved = (profile) => {
@@ -152,8 +154,6 @@ function App() {
   }
 
   const handleOpenChat = ({ profile, match }) => {
-    setIsMatchesOpen(false)
-    setActiveView('cards')
     setActiveChat({
       profile,
       match,
@@ -169,26 +169,12 @@ function App() {
     setSession(null)
     setAuthUser(null)
     setCurrentUserProfile(null)
-    setIsMatchesOpen(false)
     setIsProfileEditorOpen(false)
     setActiveChat(null)
-    setActiveView('cards')
+    setActiveTab('cards')
+    setUnreadCount(0)
     persistCurrentUserId(null)
   }
-
-  const userSummary = useMemo(() => {
-    if (!authUser) {
-      return null
-    }
-
-    return {
-      email: authUser.email,
-      age: currentUserProfile?.age,
-      genderLabel:
-        currentUserProfile?.gender === 'male' ? '男' : currentUserProfile?.gender === 'female' ? '女' : '其他',
-      interestCount: currentUserProfile?.interests?.length ?? 0,
-    }
-  }, [authUser, currentUserProfile])
 
   if (!isSupabaseConfigured) {
     return <ConfigState />
@@ -210,88 +196,43 @@ function App() {
     return <OnboardingFlow user={authUser} onComplete={handleProfileCompleted} />
   }
 
+  const renderActiveTab = () => {
+    if (activeTab === 'radar') {
+      return (
+        <Suspense fallback={<LoadingState text="正在加载同城雷达地图资源，请稍等..." />}>
+          <MapRadar currentUserId={authUser.id} currentUserProfile={currentUserProfile} onProfileUpdated={handleProfileSaved} />
+        </Suspense>
+      )
+    }
+
+    if (activeTab === 'messages') {
+      return (
+        <MessagesPage
+          currentUserId={authUser.id}
+          onOpenChat={handleOpenChat}
+          onUnreadCountChange={setUnreadCount}
+        />
+      )
+    }
+
+    if (activeTab === 'me') {
+      return (
+        <MyProfileCenter
+          user={authUser}
+          profile={currentUserProfile}
+          onEditProfile={() => setIsProfileEditorOpen(true)}
+          onSignOut={handleSignOut}
+        />
+      )
+    }
+
+    return <MatchCardPage currentUserId={authUser.id} currentUserProfile={currentUserProfile} onOpenChat={handleOpenChat} />
+  }
+
   return (
     <>
-      {!activeChat && (
-        <div className="pointer-events-none fixed left-0 right-0 top-4 z-40 flex justify-center px-4">
-          <div className="pointer-events-auto flex w-full max-w-5xl items-center justify-between rounded-[32px] border border-white/70 bg-white/82 px-5 py-3 shadow-lg shadow-pink-100/60 backdrop-blur-xl">
-            <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border border-pink-100 bg-pink-50 shadow-sm">
-                {currentUserProfile.avatar_url ? (
-                  <img src={currentUserProfile.avatar_url} alt="当前用户头像" className="h-full w-full object-cover" />
-                ) : (
-                  <Heart className="h-5 w-5 text-pink-400" />
-                )}
-              </div>
-              <div className="space-y-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-sm font-semibold text-slate-800">{currentUserProfile.nickname}</p>
-                  <span className="rounded-full border border-pink-100 bg-pink-50 px-2.5 py-1 text-[11px] font-medium text-pink-500">
-                    资料已完善
-                  </span>
-                </div>
-                <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                  <span>{userSummary?.email}</span>
-                  <span>·</span>
-                  <span>
-                    {userSummary?.genderLabel} · {userSummary?.age} 岁
-                  </span>
-                  <span>·</span>
-                  <span>{userSummary?.interestCount} 个兴趣标签</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsMatchesOpen(false)
-                  setActiveView((current) => (current === 'radar' ? 'cards' : 'radar'))
-                }}
-                className={`inline-flex items-center gap-2 rounded-full border px-4 py-2.5 text-sm font-medium transition ${
-                  activeView === 'radar'
-                    ? 'border-cyan-200 bg-cyan-50 text-cyan-600'
-                    : 'border-pink-200 bg-white text-slate-600 hover:border-pink-200 hover:bg-pink-50 hover:text-pink-500'
-                }`}
-              >
-                <Compass className="h-4 w-4" />
-                同城雷达
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setIsProfileEditorOpen(true)}
-                className="inline-flex items-center gap-2 rounded-full border border-pink-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 transition hover:border-pink-200 hover:bg-pink-50 hover:text-pink-500"
-              >
-                <PencilLine className="h-4 w-4" />
-                编辑资料
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setIsMatchesOpen(true)}
-                className="inline-flex items-center gap-2 rounded-full border border-pink-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 transition hover:border-pink-200 hover:bg-pink-50 hover:text-pink-500"
-              >
-                <MessageCircle className="h-4 w-4" />
-                会话列表
-              </button>
-
-              <button
-                type="button"
-                onClick={handleSignOut}
-                className="inline-flex items-center gap-2 rounded-full border border-pink-200 bg-pink-50 px-4 py-2.5 text-sm font-medium text-pink-500 transition hover:bg-pink-100"
-              >
-                <LogOut className="h-4 w-4" />
-                退出登录
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {profileLoadError && !activeChat && (
-        <div className="pointer-events-none fixed bottom-4 left-0 right-0 z-40 flex justify-center px-4">
+        <div className="pointer-events-none fixed left-0 right-0 top-4 z-40 flex justify-center px-4">
           <div className="pointer-events-auto rounded-full border border-rose-100 bg-white px-4 py-2 text-sm text-rose-500 shadow-lg shadow-rose-100/60">
             资料读取提示：{profileLoadError}
           </div>
@@ -308,30 +249,10 @@ function App() {
         />
       ) : (
         <>
-          {activeView === 'radar' ? (
-            <Suspense fallback={<LoadingState text="正在加载同城雷达地图资源，请稍等..." />}>
-              <MapRadar
-                currentUserId={authUser.id}
-                currentUserProfile={currentUserProfile}
-                onProfileUpdated={handleProfileSaved}
-              />
-            </Suspense>
-          ) : (
-            <MatchCardPage
-              currentUserId={authUser.id}
-              currentUserProfile={currentUserProfile}
-              onOpenChat={handleOpenChat}
-            />
-          )}
+          <div className="transition-opacity duration-200">{renderActiveTab()}</div>
+          <BottomTabBar activeTab={activeTab} onChange={setActiveTab} unreadCount={unreadCount} />
         </>
       )}
-
-      <MatchesDrawer
-        open={!activeChat && isMatchesOpen}
-        currentUserId={authUser.id}
-        onClose={() => setIsMatchesOpen(false)}
-        onOpenChat={handleOpenChat}
-      />
 
       {!activeChat && isProfileEditorOpen && (
         <ProfileEditorModal
