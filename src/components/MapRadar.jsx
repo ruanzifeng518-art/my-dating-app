@@ -11,6 +11,10 @@ const DEFAULT_VIEW_STATE = {
   latitude: 39.9093,
   zoom: 11.6,
 }
+const DEMO_COORDINATES = {
+  latitude: 31.2304,
+  longitude: 121.4737,
+}
 
 function toRadarErrorMessage(error, fallbackText) {
   const rawMessage = error instanceof Error ? error.message : String(error || '')
@@ -126,13 +130,17 @@ export default function MapRadar({ currentUserId, currentUserProfile, onProfileU
   const persistCurrentLocation = useCallback(
     async (coords) => {
       const payload = {
-        id: currentUserId,
         latitude: coords.latitude,
         longitude: coords.longitude,
         location_updated_at: new Date().toISOString(),
       }
 
-      const { data, error } = await supabase.from('profiles').upsert(payload, { onConflict: 'id' }).select('*').single()
+      const { data, error } = await supabase
+        .from('profiles')
+        .update(payload)
+        .eq('id', currentUserId)
+        .select('*')
+        .single()
 
       if (error) {
         throw error
@@ -257,6 +265,29 @@ export default function MapRadar({ currentUserId, currentUserProfile, onProfileU
       await loadNearbyProfiles(coords)
     } catch (error) {
       setLocationError(toRadarErrorMessage(error, '定位失败，请确认浏览器已经允许位置权限。'))
+    } finally {
+      setIsLocating(false)
+    }
+  }, [loadNearbyProfiles, persistCurrentLocation])
+
+  const applyDemoCoordinates = useCallback(async () => {
+    setIsLocating(true)
+    setLocationError('')
+    setActionMessage('')
+
+    try {
+      await persistCurrentLocation(DEMO_COORDINATES)
+      setUserLocation(DEMO_COORDINATES)
+      setViewState((prev) => ({
+        ...prev,
+        latitude: DEMO_COORDINATES.latitude,
+        longitude: DEMO_COORDINATES.longitude,
+        zoom: Math.max(prev.zoom, 12.6),
+      }))
+      await loadNearbyProfiles(DEMO_COORDINATES)
+      setActionMessage('已写入演示坐标，适合在本地或无定位权限环境里继续联调。')
+    } catch (error) {
+      setLocationError(toRadarErrorMessage(error, '写入演示坐标失败，请稍后再试。'))
     } finally {
       setIsLocating(false)
     }
@@ -387,15 +418,27 @@ export default function MapRadar({ currentUserId, currentUserProfile, onProfileU
 
           <div className="flex flex-col gap-3 lg:items-end">
             <div className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200">{nearestHint}</div>
-            <button
-              type="button"
-              onClick={() => void requestCurrentLocation()}
-              disabled={isLocating}
-              className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-pink-500 to-rose-400 px-5 py-3 text-sm font-medium text-white shadow-lg shadow-pink-500/20 transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              {isLocating ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <LocateFixed className="h-4 w-4" />}
-              {userLocation ? '刷新我的定位' : '开启雷达定位'}
-            </button>
+            <div className="flex flex-wrap gap-3 lg:justify-end">
+              <button
+                type="button"
+                onClick={() => void requestCurrentLocation()}
+                disabled={isLocating}
+                className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-pink-500 to-rose-400 px-5 py-3 text-sm font-medium text-white shadow-lg shadow-pink-500/20 transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {isLocating ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <LocateFixed className="h-4 w-4" />}
+                {userLocation ? '刷新我的定位' : '开启雷达定位'}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => void applyDemoCoordinates()}
+                disabled={isLocating}
+                className="inline-flex items-center gap-2 rounded-full border border-cyan-300/25 bg-cyan-400/10 px-5 py-3 text-sm font-medium text-cyan-50 transition hover:bg-cyan-400/15 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                <MapPin className="h-4 w-4" />
+                使用演示坐标
+              </button>
+            </div>
           </div>
         </div>
 
