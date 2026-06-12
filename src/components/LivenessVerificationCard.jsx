@@ -229,6 +229,10 @@ export default function LivenessVerificationCard({
     try {
       getProfilePayload()
 
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error('当前浏览器环境暂不支持摄像头调用，请换到支持相机权限的手机或现代浏览器中完成认证。')
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: 'user',
