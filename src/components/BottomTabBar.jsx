@@ -1,4 +1,4 @@
-import { Compass, Heart, MessageCircle, UserRound } from 'lucide-react'
+import { Compass, Heart, MessageCircle, Sparkles, UserRound } from 'lucide-react'
 
 const TAB_CONFIG = {
   cards: {
@@ -8,6 +8,10 @@ const TAB_CONFIG = {
   radar: {
     label: '雷达',
     icon: Compass,
+  },
+  community: {
+    label: '动态',
+    icon: Sparkles,
   },
   messages: {
     label: '消息',
@@ -22,7 +26,7 @@ const TAB_CONFIG = {
 export default function BottomTabBar({ activeTab, onChange, unreadCount = 0 }) {
   return (
     <nav className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center px-4 pb-4">
-      <div className="pointer-events-auto flex w-full max-w-3xl items-center justify-between rounded-[30px] border border-white/70 bg-white/88 px-3 py-3 shadow-[0_24px_80px_rgba(244,114,182,0.18)] backdrop-blur-xl">
+      <div className="pointer-events-auto flex w-full max-w-4xl items-center justify-between rounded-[30px] border border-white/70 bg-white/88 px-3 py-3 shadow-[0_24px_80px_rgba(244,114,182,0.18)] backdrop-blur-xl">
         {Object.entries(TAB_CONFIG).map(([key, config]) => {
           const isActive = activeTab === key
           const Icon = config.icon

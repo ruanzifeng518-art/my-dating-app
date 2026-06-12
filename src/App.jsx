@@ -2,6 +2,8 @@ import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 import { LoaderCircle, Sparkles } from 'lucide-react'
 import BottomTabBar from './components/BottomTabBar'
 import ChatRoom from './components/ChatRoom'
+import Community from './components/Community'
+import FaceVerify from './components/FaceVerify'
 import Login from './components/Login'
 import MatchCardPage from './components/MatchCardPage'
 import MessagesPage from './components/MessagesPage'
@@ -52,6 +54,7 @@ function App() {
   const [activeChat, setActiveChat] = useState(null)
   const [activeTab, setActiveTab] = useState('cards')
   const [isProfileEditorOpen, setIsProfileEditorOpen] = useState(false)
+  const [isFaceVerifyOpen, setIsFaceVerifyOpen] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
 
   const persistCurrentUserId = useCallback((userId) => {
@@ -170,6 +173,7 @@ function App() {
     setAuthUser(null)
     setCurrentUserProfile(null)
     setIsProfileEditorOpen(false)
+    setIsFaceVerifyOpen(false)
     setActiveChat(null)
     setActiveTab('cards')
     setUnreadCount(0)
@@ -215,6 +219,10 @@ function App() {
       )
     }
 
+    if (activeTab === 'community') {
+      return <Community currentUserId={authUser.id} currentUserProfile={currentUserProfile} />
+    }
+
     if (activeTab === 'me') {
       return (
         <MyProfileCenter
@@ -222,6 +230,7 @@ function App() {
           profile={currentUserProfile}
           onEditProfile={() => setIsProfileEditorOpen(true)}
           onSignOut={handleSignOut}
+          onOpenFaceVerify={() => setIsFaceVerifyOpen(true)}
         />
       )
     }
@@ -247,6 +256,12 @@ function App() {
           peerProfile={activeChat.profile}
           onBack={handleCloseChat}
         />
+      ) : isFaceVerifyOpen ? (
+        <FaceVerify
+          profile={currentUserProfile}
+          onBack={() => setIsFaceVerifyOpen(false)}
+          onVerified={handleProfileSaved}
+        />
       ) : (
         <>
           <div className="transition-opacity duration-200">{renderActiveTab()}</div>
@@ -254,7 +269,7 @@ function App() {
         </>
       )}
 
-      {!activeChat && isProfileEditorOpen && (
+      {!activeChat && !isFaceVerifyOpen && isProfileEditorOpen && (
         <ProfileEditorModal
           key={`${currentUserProfile.id}-${currentUserProfile.nickname}-${currentUserProfile.age}-${currentUserProfile.avatar_url || ''}`}
           open

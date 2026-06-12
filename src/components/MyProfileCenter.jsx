@@ -1,4 +1,4 @@
-import { Heart, LogOut, Mail, MapPin, PencilLine, ShieldCheck, Sparkles, UserRoundCheck } from 'lucide-react'
+import { BadgeCheck, Heart, LogOut, Mail, MapPin, PencilLine, ShieldCheck, Sparkles, UserRoundCheck } from 'lucide-react'
 import VerifiedBadge from './VerifiedBadge'
 import { DAILY_UNVERIFIED_LIKE_LIMIT } from '../utils/verification'
 
@@ -9,7 +9,7 @@ function buildAvatar(profile) {
   )
 }
 
-export default function MyProfileCenter({ user, profile, onEditProfile, onSignOut }) {
+export default function MyProfileCenter({ user, profile, onEditProfile, onSignOut, onOpenFaceVerify }) {
   const avatar = buildAvatar(profile)
   const isVerified = Boolean(profile?.is_verified)
 
@@ -34,6 +34,9 @@ export default function MyProfileCenter({ user, profile, onEditProfile, onSignOu
                 <div className="flex flex-wrap items-center gap-3">
                   <h1 className="text-3xl font-semibold tracking-tight text-slate-900">{profile?.nickname}</h1>
                   {isVerified ? <VerifiedBadge label="真人认证" /> : null}
+                  {!isVerified ? (
+                    <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-500">未认证</span>
+                  ) : null}
                 </div>
                 <div className="flex flex-wrap items-center gap-3 text-sm text-slate-500">
                   <span className="inline-flex items-center gap-2">
@@ -49,6 +52,19 @@ export default function MyProfileCenter({ user, profile, onEditProfile, onSignOu
             </div>
 
             <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={onOpenFaceVerify}
+                className={`inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-medium transition ${
+                  isVerified
+                    ? 'border border-sky-200 bg-sky-50 text-sky-600 hover:bg-sky-100'
+                    : 'bg-gradient-to-r from-pink-500 via-rose-400 to-sky-400 text-white shadow-[0_16px_32px_rgba(244,114,182,0.28)] hover:opacity-95'
+                }`}
+              >
+                <BadgeCheck className="h-4 w-4" />
+                {isVerified ? '重新认证' : '去认证'}
+              </button>
+
               <button
                 type="button"
                 onClick={onEditProfile}
@@ -93,8 +109,8 @@ export default function MyProfileCenter({ user, profile, onEditProfile, onSignOu
                 <h3 className="mt-4 text-base font-semibold text-slate-900">真人认证</h3>
                 <p className="mt-2 text-sm leading-7 text-slate-500">
                   {isVerified
-                    ? '你已经完成活体认证，昵称后会永久显示官方蓝底白勾。'
-                    : `你还未完成真人认证，未认证用户每天最多喜欢 ${DAILY_UNVERIFIED_LIKE_LIMIT} 次。`}
+                    ? '你已经完成活体认证，昵称后会永久显示粉蓝官方真人认证蓝勾徽章。'
+                    : `你还未完成真人认证，未认证用户每天最多喜欢 ${DAILY_UNVERIFIED_LIKE_LIMIT} 次。点击“去认证”即可进入相机活体识别页。`}
                 </p>
               </div>
 
